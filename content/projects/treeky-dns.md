@@ -17,11 +17,8 @@ links:
 ![Overview](/assets/images/tdns/overview.jpg "Overview")
 
 ### What I Did
-Contributed to the development and enhancement of game features, focusing on smooth gameplay and engaging content. Key contributions include:
-- Quality-of-Life Improvements (QoL)
-- Ad Integration
-- Partial Localization
-- Bug Fixing
-- Event Development
-- Grid System Optimization
-- Character Skill Prototyping and Implementation
+Enhanced gameplay and player experience through development of key systems and features, including:
+- Implemented Quality-of-Life improvements to streamline player interactions  
+- Integrated ads and partial localization to broaden reach and monetization  
+- Fixed critical bugs and optimized grid systems for smoother performance  
+- Developed in-game events and prototyped character skills to increase engagement  

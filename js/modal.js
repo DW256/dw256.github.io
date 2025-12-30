@@ -213,8 +213,15 @@ export function openModal(projectData, markdownBody) {
 
     if (slideImages.length) {
         currentSlide = 0;
+        const carouselWrapper = document.createElement("div");
+        carouselWrapper.setAttribute("role", "region");
+        carouselWrapper.setAttribute("aria-label", "Project screenshots");
+        carouselWrapper.className = "carousel-wrapper mb-6";
+
         const carouselEl = createCarousel(slideImages);
-        if (carouselEl) modalBody.appendChild(carouselEl);
+        if (carouselEl) carouselWrapper.appendChild(carouselEl);
+        modalBody.appendChild(carouselWrapper);
+
         showSlide(0);
         startAutoplay();
     }
@@ -226,19 +233,29 @@ export function openModal(projectData, markdownBody) {
     // Remove <h3>Screenshots</h3> if it exists
     const h3 = mdContent.querySelector("h3");
     if (h3 && h3.textContent === "Screenshots") h3.remove();
-    
+
     modalBody.appendChild(mdContent);
 
     if (projectData.links && Object.keys(projectData.links).length) {
         const linksDiv = document.createElement("div");
         linksDiv.className = "mt-6 flex flex-wrap gap-3 border-t border-gray-200 dark:border-gray-700 pt-4";
+
         Object.entries(projectData.links).forEach(([key, url]) => {
             const a = document.createElement("a");
             a.href = url;
             a.target = "_blank";
             a.rel = "noopener";
-            a.textContent = key.charAt(0).toUpperCase() + key.slice(1);
-            a.className = "px-4 py-2 border rounded-md text-sm hover:bg-neutral-100 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 focus:ring";
+            a.className =
+                "px-4 py-2 border rounded-md text-sm flex items-center gap-2 hover:bg-neutral-100 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 focus:ring";
+
+            const icon = document.createElement("i");
+            icon.className = `${getLinkIconClass(key)}`;
+            a.appendChild(icon);
+
+            const span = document.createElement("span");
+            span.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+            a.appendChild(span);
+
             linksDiv.appendChild(a);
         });
         modalBody.appendChild(linksDiv);
@@ -251,6 +268,21 @@ export function openModal(projectData, markdownBody) {
         const focusables = getFocusableElements();
         (focusables[0] || modalPanel).focus();
     });
+}
+
+function getLinkIconClass(key) {
+    switch (key.toLowerCase()) {
+        case "playstore":
+            return "fa-brands fa-google-play";
+        case "appstore":
+            return "fa-brands fa-apple";
+        case "video":
+            return "fa-solid fa-video";
+        case "repo":
+            return "fa-brands fa-git-alt";
+        default:
+            return "fa-link";
+    }
 }
 
 export function closeModal() {
