@@ -15,23 +15,42 @@ export function parseFrontmatter(md) {
     const match = md.match(/^---([\s\S]*?)---([\s\S]*)$/);
     if (!match) return { data: {}, body: md };
 
-    const lines = match[1].trim().split("\n");
-    const body = match[2];
+    const lines = match[1].split("\n");
+    const body = match[2].trim();
 
     const data = {};
     let currentKey = null;
 
-    for (const line of lines) {
-        if (!line.trim()) continue;
+    function cleanValue(val) {
+        if (!val) return "";
+        val = val.trim();
+        if ((val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'"))) {
+            return val.slice(1, -1);
+        }
+        return val;
+    }
 
-        if (line.startsWith("  -") && currentKey) {
-            data[currentKey].push(line.replace("  -", "").trim());
+    let i = 0;
+    while (i < lines.length) {
+        let line = lines[i];
+        if (!line.trim()) {
+            i++;
             continue;
         }
 
-        if (line.startsWith("  ") && currentKey === "links") {
-            const [k, v] = line.trim().split(":");
-            data.links[k.trim()] = v.trim();
+        if (line.startsWith("  -") && currentKey) {
+            data[currentKey].push(cleanValue(line.replace("  -", "").trim()));
+            i++;
+            continue;
+        }
+
+        if (line.startsWith("  ") && currentKey && typeof data[currentKey] === "object") {
+            const kv = line.trim().split(":");
+            const key = kv[0].trim();
+            const val = kv.slice(1).join(":").trim();
+            data[currentKey][key] = cleanValue(val);
+            i++;
             continue;
         }
 
@@ -43,8 +62,10 @@ export function parseFrontmatter(md) {
             data[currentKey] = currentKey === "links" ? {} : [];
         } else {
             currentKey = null;
-            data[key.trim()] = value;
+            data[key.trim()] = cleanValue(value);
         }
+
+        i++;
     }
 
     return { data, body };
