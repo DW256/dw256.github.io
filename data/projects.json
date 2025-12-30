@@ -1,0 +1,15 @@
+[
+  {
+    "id": "epicon-x",
+    "title": "Epic Conquest: X",
+    "tech": [
+      "Unity",
+      "C#",
+      "ScriptableObject",
+      "MongoDB",
+      "UniTask"
+    ],
+    "thumbnail": "assets/images/ecx-thumb.png",
+    "order": 1
+  }
+]

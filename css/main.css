@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* @theme {
+    
+} */
+
+html {
+    scrollbar-gutter: stable;
+}
+
+/* -------------------- Modal -------------------- */
+#modal-panel {
+    max-width: 90%;
+    width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* -------------------- Carousel -------------------- */
+.carousel-wrapper {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    user-select: none;
+}
+
+#carousel-track {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+}
+
+.carousel-slide {
+    flex-shrink: 0;
+    width: 100%;
+    position: relative;
+}
+
+.carousel-slide img {
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: transform 4s ease-in-out, opacity 0.5s ease-in-out;
+}
+
+.carousel-slide.active img {
+    transform: scale(1.05);
+}
+
+/* Carousel navigation buttons */
+.carousel-wrapper button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.7);
+    color: #000;
+    border-radius: 9999px;
+    padding: 0.25rem 0.5rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.carousel-wrapper button:hover {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* -------------------- Markdown -------------------- */
+.markdown ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+}
+
+.markdown ol {
+    list-style: decimal;
+    padding-left: 1.5rem;
+}
+
+.markdown li {
+    display: list-item;
+    margin: 0.25rem 0;
+}
+
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.markdown p {
+    margin: 0.5rem 0;
+}
+

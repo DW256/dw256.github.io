@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+
+<head>
+    <meta charset="UTF-8" />
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <link rel="stylesheet" href="./css/main2.css" />
+
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.documentElement.classList.toggle(
+            "dark",
+            localStorage.theme === "dark" ||
+            (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        );
+    </script>
+</head>
+
+<body class="bg-white text-neutral-900 dark:bg-gray-900 dark:text-neutral-100 transition-colors duration-300">
+
+    <!-- Dark mode toggle -->
+    <div id="theme-toggle" class="fixed top-4 right-4 flex gap-2"></div>
+
+    <main class="max-w-5xl mx-auto px-6 py-20 space-y-36">
+
+        <!-- Intro -->
+        <section id="intro" class="space-y-6"></section>
+
+        <!-- Projects -->
+        <section id="projects">
+            <h2 class="text-2xl font-semibold tracking-tight mb-10">Projects</h2>
+            <div id="project-filters" class="mb-6 flex flex-wrap gap-2"></div>
+            <div id="project-grid" class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3"></div>
+        </section>
+
+        <!-- Skills -->
+        <section id="skills">
+            <h2 class="text-2xl font-semibold tracking-tight mb-10">Skills</h2>
+            <div id="skills-content" class="skills-section"></div>
+        </section>
+
+        <!-- Experience -->
+        <section id="experience">
+            <h2 class="text-2xl font-semibold tracking-tight mb-10">Experience</h2>
+            <div id="experience-content" class="markdown prose dark:prose-invert"></div>
+        </section>
+
+    </main>
+
+    <!-- Modal -->
+    <div id="modal-root" class="fixed inset-0 hidden z-50">
+        <div id="modal-backdrop" class="absolute inset-0 bg-black/50"></div>
+        <div id="modal-panel" tabindex="-1"
+            class="relative bg-white dark:bg-gray-800 w-full h-full md:h-auto md:max-w-3xl md:mx-auto md:my-16 rounded-none md:rounded-lg overflow-hidden flex flex-col transition-colors duration-300">
+            <div
+                class="flex justify-between items-center px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+                <h3 id="modal-title" class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"></h3>
+                <button id="modal-close"
+                    class="text-xl leading-none text-neutral-900 dark:text-neutral-100">&times;</button>
+            </div>
+            <div id="modal-body" class="markdown px-6 py-6 overflow-y-auto prose dark:prose-invert"></div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/modal.js"></script>
+</body>
+
+</html>
