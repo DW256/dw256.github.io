@@ -52,42 +52,22 @@ async function loadProjects() {
 
     for (const entry of manifest.sort((a, b) => a.order - b.order)) {
         const mdPath = `./content/projects/${entry.id}.md`;
-        const fallbackPath = `./content/projects/${entry.id}`;
-
-        let raw = await fetchMarkdownWithFallback(mdPath, fallbackPath);
+        let raw = await fetchMarkdown(mdPath);
         raw = resolveImagePaths(raw, mdPath);
-
         const { data, body } = parseFrontmatter(raw);
         if (!validateProjectFrontmatter(data, entry.id)) return;
-
         allProjects.push({ data, body });
     }
 
     const allTechs = [...new Set(allProjects.flatMap(p => p.data.tech))].sort();
-    activeFilters = activeFilters.filter(f => f === "All" || allTechs.includes(f));
+    activeFilters = activeFilters.filter(f => f === 'All' || allTechs.includes(f));
     if (activeFilters.length === 0) {
-        activeFilters = ["All"];
+        activeFilters = ['All'];
         setFiltersToURL(activeFilters);
     }
 
     renderFilters(allTechs);
     renderProjects();
-}
-
-async function fetchMarkdownWithFallback(mdPath, fallbackPath) {
-    // Try .md first (works locally / dev)
-    const mdRes = await fetch(mdPath);
-    if (mdRes.ok) {
-        return mdRes.text();
-    }
-
-    // Fallback to extensionless path (GitHub Pages)
-    const fallbackRes = await fetch(fallbackPath);
-    if (!fallbackRes.ok) {
-        throw new Error(`Failed to fetch markdown: ${mdPath}`);
-    }
-
-    return fallbackRes.text();
 }
 
 /* ---------- filters ---------- */
