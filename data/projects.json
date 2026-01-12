@@ -23,5 +23,16 @@
     ],
     "thumbnail": "assets/images/treeky-thumb.png",
     "order": 2
+  },
+  {
+    "id": "scriptableobject-manager",
+    "title": "ScriptableObject Manager for Unity",
+    "tech": [
+      "Unity",
+      "C#",
+      "ScriptableObject"
+    ],
+    "thumbnail": "assets/images/som-tb.png",
+    "order": 3
   }
 ]
