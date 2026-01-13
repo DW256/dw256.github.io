@@ -334,6 +334,7 @@ async function loadIntro(path) {
                 if (href.startsWith("mailto:")) return "fa-solid fa-envelope";
                 if (href.includes("github.com")) return "fa-brands fa-github";
                 if (href.includes("linkedin.com")) return "fa-brands fa-linkedin";
+                if (href.includes("itch.io")) return "fa-brands fa-itch-io";
                 return "fa-solid fa-link"; // default
             })();
 
