@@ -34,5 +34,25 @@
     ],
     "thumbnail": "assets/images/som-tb.png",
     "order": 3
+  },
+  {
+    "id": "blacksmith2024",
+    "title": "Elric Mini Blacksmith Shop",
+    "tech": [
+      "Unity",
+      "C#"
+    ],
+    "thumbnail": "assets/images/blacksmith2024.png",
+    "order": 4
+  },
+  {
+    "id": "sol2024",
+    "title": "Seed of Light",
+    "tech": [
+      "Unity",
+      "C#"
+    ],
+    "thumbnail": "assets/images/sol2024-tb.png",
+    "order": 5
   }
 ]

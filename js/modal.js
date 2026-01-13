@@ -280,6 +280,8 @@ function getLinkIconClass(key) {
             return "fa-solid fa-video";
         case "repo":
             return "fa-brands fa-git-alt";
+        case "itch":
+            return "fa-brands fa-itch-io";
         default:
             return "fa-link";
     }
