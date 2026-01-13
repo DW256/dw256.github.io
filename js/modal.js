@@ -114,8 +114,11 @@ function createCarousel(images) {
     wrapper.appendChild(track);
 
     if (images.length > 1) {
+        wrapper.className = "carousel-wrapper relative w-full overflow-hidden mb-4 select-none";
         const prev = createButton("‹", () => stopAutoplayTemporarily() || showSlide(currentSlide - 1), "left-2");
         const next = createButton("›", () => stopAutoplayTemporarily() || showSlide(currentSlide + 1), "right-2");
+        prev.classList.add("carousel-nav");
+        next.classList.add("carousel-nav");
         wrapper.append(prev, next);
 
         const dots = document.createElement("div");

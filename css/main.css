@@ -1,10 +1,7 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* @theme {
-    
-} */
-
+/* -------------------- Global -------------------- */
 html {
     scrollbar-gutter: stable;
 }
@@ -50,8 +47,8 @@ html {
     transform: scale(1.05);
 }
 
-/* Carousel navigation buttons */
-.carousel-wrapper button {
+/* -------------------- Carousel navigation buttons -------------------- */
+.carousel-wrapper .carousel-nav {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -64,7 +61,7 @@ html {
     transition: background 0.2s;
 }
 
-.carousel-wrapper button:hover {
+.carousel-wrapper .carousel-nav:hover {
     background: rgba(255, 255, 255, 0.9);
 }
 
@@ -95,4 +92,3 @@ html {
 .markdown p {
     margin: 0.5rem 0;
 }
-

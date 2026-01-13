@@ -60,7 +60,6 @@
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --animate-ping: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
     --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    --aspect-video: 16 / 9;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
@@ -1031,7 +1030,7 @@ html {
 .carousel-slide.active img {
   transform: scale(1.05);
 }
-.carousel-wrapper button {
+.carousel-wrapper .carousel-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -1043,7 +1042,7 @@ html {
   cursor: pointer;
   transition: background 0.2s;
 }
-.carousel-wrapper button:hover {
+.carousel-wrapper .carousel-nav:hover {
   background: rgba(255, 255, 255, 0.9);
 }
 .markdown ul {
