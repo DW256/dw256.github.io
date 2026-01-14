@@ -19,7 +19,7 @@
       "Unity",
       "C#",
       "ScriptableObject",
-      "Playfab"
+      "PlayFab"
     ],
     "thumbnail": "assets/images/treeky-thumb.png",
     "order": 2
@@ -42,7 +42,7 @@
       "Unity",
       "C#"
     ],
-    "thumbnail": "assets/images/blacksmith2024.png",
+    "thumbnail": "assets/images/blacksmith2024-tb.png",
     "order": 4
   },
   {
@@ -52,7 +52,7 @@
       "Unity",
       "C#"
     ],
-    "thumbnail": "assets/images/sol2024-tb.png",
+    "thumbnail": "assets/images/sol2024-tb.jpg",
     "order": 5
   }
 ]
