@@ -298,66 +298,101 @@ async function loadIntro(path) {
     const md = await fetchMarkdown(path);
     const html = marked.parse(md);
 
-    // Create a temporary div to parse the markdown
     const temp = document.createElement("div");
     temp.innerHTML = html;
 
     container.innerHTML = "";
 
-    // Extract title (first H1) and subtitle (first P after H1)
+    // Title + subtitle
     const h1 = temp.querySelector("h1");
     const p = temp.querySelector("p");
 
-    const titleDiv = document.createElement("div");
     const h1El = document.createElement("h1");
     h1El.className = "text-4xl font-bold mb-4";
-    h1El.textContent = h1 ? h1.textContent : "";
+    h1El.textContent = h1?.textContent ?? "";
+
     const pEl = document.createElement("p");
     pEl.className = "text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl";
-    pEl.textContent = p ? p.textContent : "";
-    titleDiv.append(h1El, pEl);
+    pEl.textContent = p?.textContent ?? "";
 
-    // Contact links (assume remaining list items in first UL)
-    const ul = temp.querySelector("ul");
-    const contactsDiv = document.createElement("div");
-    contactsDiv.className = "flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-700 dark:text-neutral-300";
+    container.append(h1El, pEl);
 
-    if (ul) {
-        Array.from(ul.querySelectorAll("li")).forEach(li => {
-            const a = li.querySelector("a");
-            if (!a) return;
+    // Contacts
+    const allUls = Array.from(temp.querySelectorAll("ul"));
+    const downloadHeader = Array.from(temp.querySelectorAll("h2"))
+        .find(h => /^download$/i.test(h.textContent.trim()));
 
-            const href = a.href;
-            const text = a.textContent;
+    const downloadUl = downloadHeader
+        ? downloadHeader.nextElementSibling?.tagName === "UL"
+            ? downloadHeader.nextElementSibling
+            : null
+        : null;
+
+    const contactsUl = allUls.find(ul => ul !== downloadUl);
+
+    if (contactsUl) {
+        const contactsDiv = document.createElement("div");
+        contactsDiv.className =
+            "flex flex-wrap gap-x-6 gap-y-2 mt-6 text-sm text-neutral-700 dark:text-neutral-300";
+
+        Array.from(contactsUl.querySelectorAll("a")).forEach(a => {
+            const href = a.getAttribute("href");
+            const text = a.textContent.trim();
 
             const iconClass = (() => {
                 if (href.startsWith("mailto:")) return "fa-solid fa-envelope";
                 if (href.includes("github.com")) return "fa-brands fa-github";
                 if (href.includes("linkedin.com")) return "fa-brands fa-linkedin";
                 if (href.includes("itch.io")) return "fa-brands fa-itch-io";
-                return "fa-solid fa-link"; // default
+                return "fa-solid fa-link";
             })();
 
             const linkEl = document.createElement("a");
             linkEl.href = href;
             linkEl.target = "_blank";
-            linkEl.className = "hover:underline flex items-center gap-2"; // Use gap instead of mr
+            linkEl.rel = "noopener noreferrer";
+            linkEl.className = "hover:underline flex items-center gap-2";
 
-            // Add icon
             const iconEl = document.createElement("i");
-            iconEl.className = iconClass + " text-base"; // ensure icon size
-            linkEl.appendChild(iconEl);
+            iconEl.className = iconClass + " text-base";
 
-            // Add text
             const span = document.createElement("span");
             span.textContent = text;
-            linkEl.appendChild(span);
 
+            linkEl.append(iconEl, span);
             contactsDiv.appendChild(linkEl);
         });
+
+        container.appendChild(contactsDiv);
     }
 
-    container.append(titleDiv, contactsDiv);
+    // Download section buttons
+    if (downloadUl) {
+        const ctaWrapper = document.createElement("div");
+        ctaWrapper.className = "flex flex-wrap gap-4 mt-6";
+
+        Array.from(downloadUl.querySelectorAll("a")).forEach((a, index) => {
+            const href = a.getAttribute("href");
+            const text = a.textContent.trim();
+
+            const btn = document.createElement("a");
+            btn.href = href;
+            btn.target = "_blank";
+            btn.rel = "noopener noreferrer";
+            btn.textContent = text;
+
+            btn.className =
+                index === 0
+                    ? "inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl " +
+                    "bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition"
+                    : "inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl " +
+                    "border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition";
+
+            ctaWrapper.appendChild(btn);
+        });
+
+        container.appendChild(ctaWrapper);
+    }
 }
 
 async function loadMeta(path) {
