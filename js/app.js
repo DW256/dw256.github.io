@@ -344,6 +344,7 @@ async function loadIntro(path) {
                 if (href.includes("github.com")) return "fa-brands fa-github";
                 if (href.includes("linkedin.com")) return "fa-brands fa-linkedin";
                 if (href.includes("itch.io")) return "fa-brands fa-itch-io";
+                if (href.includes("wa.me" || "whatsapp")) return "fa-brands fa-whatsapp";
                 return "fa-solid fa-link";
             })();
 
