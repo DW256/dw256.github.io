@@ -347,11 +347,31 @@ loadProjects();
 loadSkills("skills-content", "./content/skills.md");
 loadExperienceTimeline("experience-content", "./content/experience.md");
 
+/* ---------- modal events ---------- */
+const modalRoot = document.getElementById("modal-root");
+
+// Handle modal closure from UI
+modalRoot.addEventListener("modalClosed", () => {
+    const projectId = getProjectFromURL();
+    if (projectId) {
+        // Remove project from URL
+        clearProjectFromURL();
+    }
+});
+
+// Popstate listener
 window.addEventListener("popstate", () => {
-    if (!getProjectFromURL()) {
-        closeModal();
+    const projectId = getProjectFromURL();
+
+    if (!projectId) {
+        // No project in URL → close modal if open
+        const isOpen = !document.getElementById("modal-root").classList.contains("hidden");
+        if (isOpen) {
+            closeModal(); // closeModal will call clearProjectFromURL only if needed
+        }
         return;
     }
 
+    // Project exists in URL → open modal
     resolveProjectFromURL({ replaceState: true });
 });

@@ -275,18 +275,12 @@ export function openModal(projectData, markdownBody) {
 
 function getLinkIconClass(key) {
     switch (key.toLowerCase()) {
-        case "playstore":
-            return "fa-brands fa-google-play";
-        case "appstore":
-            return "fa-brands fa-apple";
-        case "video":
-            return "fa-solid fa-video";
-        case "repo":
-            return "fa-brands fa-git-alt";
-        case "itch":
-            return "fa-brands fa-itch-io";
-        default:
-            return "fa-link";
+        case "playstore": return "fa-brands fa-google-play";
+        case "appstore": return "fa-brands fa-apple";
+        case "video": return "fa-solid fa-video";
+        case "repo": return "fa-brands fa-git-alt";
+        case "itch": return "fa-brands fa-itch-io";
+        default: return "fa-link";
     }
 }
 
@@ -302,7 +296,9 @@ export function closeModal() {
         lastFocusedElement.focus();
         lastFocusedElement = null;
     }
-    clearProjectFromURL();
+
+    // Dispatch a custom event for app.js to handle URL/state
+    modalRoot.dispatchEvent(new CustomEvent("modalClosed", { bubbles: true }));
 }
 
 export function clearProjectFromURL() {
