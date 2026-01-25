@@ -68,6 +68,14 @@ async function loadProjects() {
 
     renderFilters(allTechs);
     renderProjects();
+
+    const projectFromURL = getProjectFromURL();
+    if (projectFromURL) {
+        const match = allProjects.find(p => p.data.id === projectFromURL);
+        if (match) {
+            openModal(match.data, match.body, { replaceState: true });
+        }
+    }
 }
 
 /* ---------- filters ---------- */
@@ -186,7 +194,11 @@ function renderProjectCard(data, body) {
     card.appendChild(summary);
     card.appendChild(tech);
 
-    card.onclick = () => openModal(data, body);
+    card.onclick = () => {
+        setProjectToURL(data.id);
+        openModal(data, body);
+    };
+
 
     return card;
 }
@@ -207,6 +219,23 @@ function setFiltersToURL(filters) {
     const newUrl = window.location.pathname + (params.toString() ? `?${params}` : "");
     history.replaceState(null, "", newUrl);
 }
+
+function getProjectFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("project");
+}
+
+function setProjectToURL(projectId) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("project", projectId);
+
+    history.pushState(
+        { project: projectId },
+        "",
+        window.location.pathname + "?" + params.toString()
+    );
+}
+
 
 /* ---------- Theme Toggle (Light / Dark / System) ---------- */
 
@@ -551,3 +580,18 @@ loadIntro("./content/intro.md");
 loadProjects();
 loadSkills("skills-content", "./content/skills.md");
 loadExperienceTimeline("experience-content", "./content/experience.md");
+
+window.addEventListener("popstate", () => {
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get("project");
+
+    if (!projectId) {
+        closeModal();
+        return;
+    }
+
+    const match = allProjects.find(p => p.data.id === projectId);
+    if (match) {
+        openModal(match.data, match.body, { replaceState: true });
+    }
+});

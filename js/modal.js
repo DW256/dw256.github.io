@@ -302,6 +302,18 @@ export function closeModal() {
         lastFocusedElement.focus();
         lastFocusedElement = null;
     }
+    clearProjectFromURL();
+}
+
+function clearProjectFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("project");
+
+    history.replaceState(
+        null,
+        "",
+        window.location.pathname + (params.toString() ? "?" + params : "")
+    );
 }
 
 /* ---------- keyboard legend ---------- */
