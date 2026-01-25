@@ -12,6 +12,7 @@ thumbnail: assets/images/ecx-thumb.png
 order: 1
 links:
   playstore: https://play.google.com/store/apps/details?id=com.gacogames.epiconx&hl=en
+  video: https://youtu.be/Bt9-XZHvgC0
 ---
 
 ### Screenshots

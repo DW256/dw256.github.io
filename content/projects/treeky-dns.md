@@ -11,6 +11,7 @@ thumbnail: assets/images/treeky-thumb.png
 order: 2
 links:
   playstore: https://play.google.com/store/apps/details?id=com.SkypillarStudio.Match3&hl=id
+  video: https://youtu.be/iIX5AlCNEP0
 ---
 
 ### Screenshots
