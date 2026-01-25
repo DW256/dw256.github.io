@@ -73,37 +73,37 @@ function createCarousel(images) {
 
     images.forEach(({ src, caption, fullSrc }, idx) => {
         const container = document.createElement("div");
-        container.className = "relative w-full flex-shrink-0 carousel-slide h-64"; // fixed height
+        container.className = "relative w-full flex-shrink-0 carousel-slide h-64";
         container.setAttribute("role", "group");
         container.setAttribute("aria-roledescription", "slide");
         container.setAttribute("aria-label", `${idx + 1} of ${images.length}`);
 
-        // Skeleton placeholder
         const skeleton = document.createElement("div");
-        skeleton.className = "absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg";
+        skeleton.className =
+            "absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg";
         container.appendChild(skeleton);
 
-        // Image
         const img = document.createElement("img");
         img.src = src || "assets/images/fallback.png";
         img.dataset.fullSrc = fullSrc || src || "assets/images/fallback.png";
         img.loading = "lazy";
-        img.className = "w-full h-full object-contain rounded-lg transition-opacity duration-500 opacity-0 relative";
+        img.className =
+            "w-full h-full object-contain rounded-lg transition-opacity duration-500 opacity-0 relative";
         img.onload = () => {
             img.style.opacity = 1;
             skeleton.remove();
         };
         img.onerror = () => {
             img.src = "assets/images/fallback.png";
-            skeleton.style.opacity = 1; // keep a visible placeholder
+            skeleton.style.opacity = 1;
         };
         img.onclick = () => toggleFullscreen(container);
         container.appendChild(img);
 
-        // Caption
         if (caption) {
             const capEl = document.createElement("div");
-            capEl.className = "absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 dark:bg-gray-900/60 text-white text-xs px-2 py-1 rounded";
+            capEl.className =
+                "absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 dark:bg-gray-900/60 text-white text-xs px-2 py-1 rounded";
             capEl.textContent = caption;
             container.appendChild(capEl);
         }
@@ -115,8 +115,8 @@ function createCarousel(images) {
 
     if (images.length > 1) {
         wrapper.className = "carousel-wrapper relative w-full overflow-hidden mb-4 select-none";
-        const prev = createButton("‹", () => stopAutoplayTemporarily() || showSlide(currentSlide - 1), "left-2");
-        const next = createButton("›", () => stopAutoplayTemporarily() || showSlide(currentSlide + 1), "right-2");
+        const prev = createButton("‹", () => (stopAutoplayTemporarily(), showSlide(currentSlide - 1)), "left-2");
+        const next = createButton("›", () => (stopAutoplayTemporarily(), showSlide(currentSlide + 1)), "right-2");
         prev.classList.add("carousel-nav");
         next.classList.add("carousel-nav");
         wrapper.append(prev, next);
@@ -129,7 +129,7 @@ function createCarousel(images) {
             const dot = document.createElement("button");
             dot.className = "w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 transition-colors";
             dot.setAttribute("aria-label", `Go to slide ${idx + 1}`);
-            dot.onclick = () => stopAutoplayTemporarily() || showSlide(idx);
+            dot.onclick = () => (stopAutoplayTemporarily(), showSlide(idx));
             dots.appendChild(dot);
         });
         wrapper.appendChild(dots);
@@ -154,14 +154,22 @@ function addHoverPause(wrapper) {
 }
 
 function addSwipe(wrapper, track) {
-    let startX = 0, isDragging = false;
-    wrapper.addEventListener("touchstart", e => { startX = e.touches[0].clientX; isDragging = true; stopAutoplayTemporarily(); });
-    wrapper.addEventListener("touchmove", e => {
+    let startX = 0,
+        isDragging = false;
+
+    wrapper.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+        stopAutoplayTemporarily();
+    });
+
+    wrapper.addEventListener("touchmove", (e) => {
         if (!isDragging) return;
         const dx = e.touches[0].clientX - startX;
-        track.style.transform = `translateX(${-currentSlide * 100 + dx / wrapper.offsetWidth * 100}%)`;
+        track.style.transform = `translateX(${-currentSlide * 100 + (dx / wrapper.offsetWidth) * 100}%)`;
     });
-    wrapper.addEventListener("touchend", e => {
+
+    wrapper.addEventListener("touchend", (e) => {
         if (!isDragging) return;
         const dx = e.changedTouches[0].clientX - startX;
         if (dx > SWIPE_THRESHOLD) showSlide(currentSlide - 1);
@@ -186,7 +194,9 @@ function showSlide(index) {
     currentSlide = (index + total) % total;
 
     const activeImg = slides[currentSlide].querySelector("img");
-    if (activeImg && activeImg.src !== activeImg.dataset.fullSrc) activeImg.src = activeImg.dataset.fullSrc;
+    if (activeImg && activeImg.src !== activeImg.dataset.fullSrc) {
+        activeImg.src = activeImg.dataset.fullSrc;
+    }
 
     Array.from(slides).forEach((slide, idx) => slide.classList.toggle("active", idx === currentSlide));
     track.style.transform = `translateX(-${currentSlide * 100}%)`;
@@ -208,6 +218,7 @@ function showSlide(index) {
 /* ---------- modal API ---------- */
 export function openModal(projectData, markdownBody) {
     lastFocusedElement = document.activeElement;
+
     modalTitle.textContent = projectData.title;
     modalBody.innerHTML = "";
 
@@ -216,6 +227,7 @@ export function openModal(projectData, markdownBody) {
 
     if (slideImages.length) {
         currentSlide = 0;
+
         const carouselWrapper = document.createElement("div");
         carouselWrapper.setAttribute("role", "region");
         carouselWrapper.setAttribute("aria-label", "Project screenshots");
@@ -233,7 +245,6 @@ export function openModal(projectData, markdownBody) {
     mdContent.className = "prose dark:prose-invert max-w-none mt-4";
     mdContent.innerHTML = marked.parse(markdownWithoutImages);
 
-    // Remove <h3>Screenshots</h3> if it exists
     const h3 = mdContent.querySelector("h3");
     if (h3 && h3.textContent === "Screenshots") h3.remove();
 
@@ -261,6 +272,7 @@ export function openModal(projectData, markdownBody) {
 
             linksDiv.appendChild(a);
         });
+
         modalBody.appendChild(linksDiv);
     }
 
@@ -284,7 +296,11 @@ function getLinkIconClass(key) {
     }
 }
 
-export function closeModal() {
+/**
+ * silent: when true, does NOT dispatch modalClosed.
+ * Use this when closing due to popstate syncing (Back/Forward).
+ */
+export function closeModal({ silent = false } = {}) {
     modalRoot.classList.add("hidden");
     modalBody.innerHTML = "";
     document.body.style.overflow = "";
@@ -297,8 +313,9 @@ export function closeModal() {
         lastFocusedElement = null;
     }
 
-    // Dispatch a custom event for app.js to handle URL/state
-    modalRoot.dispatchEvent(new CustomEvent("modalClosed", { bubbles: true }));
+    if (!silent) {
+        modalRoot.dispatchEvent(new CustomEvent("modalClosed", { bubbles: true }));
+    }
 }
 
 export function clearProjectFromURL() {
@@ -317,29 +334,40 @@ let keyboardUsed = false;
 function showKeyboardLegend() {
     const legend = document.createElement("div");
     legend.textContent = "← → arrows: navigate slides, Esc: close, F: fullscreen";
-    legend.className = "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/70 dark:bg-gray-900/70 text-white text-xs px-3 py-1 rounded opacity-0 transition-opacity duration-300 z-50";
+    legend.className =
+        "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/70 dark:bg-gray-900/70 text-white text-xs px-3 py-1 rounded opacity-0 transition-opacity duration-300 z-50";
     document.body.appendChild(legend);
 
-    requestAnimationFrame(() => legend.style.opacity = 1);
+    requestAnimationFrame(() => (legend.style.opacity = 1));
     setTimeout(() => legend.remove(), 3000);
 }
 
 /* ---------- bindings ---------- */
-modalClose.onclick = closeModal;
-modalBackdrop.onclick = closeModal;
+modalClose.onclick = () => closeModal();
+modalBackdrop.onclick = () => closeModal();
 
-document.addEventListener("keydown", e => {
+document.addEventListener("keydown", (e) => {
     if (!modalRoot.classList.contains("hidden")) {
         trapFocus(e);
+
         if (e.key === "Escape") closeModal();
+
         if (["ArrowLeft", "ArrowRight"].includes(e.key)) stopAutoplayTemporarily();
         if (e.key === "ArrowLeft") showSlide(currentSlide - 1);
         if (e.key === "ArrowRight") showSlide(currentSlide + 1);
+
         if (e.key.toLowerCase() === "f") {
-            const activeSlide = document.querySelector(`#carousel-track .carousel-slide:nth-child(${currentSlide + 1}) img`);
+            const activeSlide = document.querySelector(
+                `#carousel-track .carousel-slide:nth-child(${currentSlide + 1}) img`
+            );
             if (activeSlide) toggleFullscreen(activeSlide.parentElement);
         }
-        if (e.key === " ") e.preventDefault() && (autoplayInterval ? stopAutoplay() : startAutoplay());
+
+        if (e.key === " ") {
+            e.preventDefault();
+            autoplayInterval ? stopAutoplay() : startAutoplay();
+        }
+
         if (!keyboardUsed) {
             keyboardUsed = true;
             showKeyboardLegend();
