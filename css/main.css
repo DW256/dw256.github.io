@@ -97,3 +97,50 @@ html {
 .markdown p {
     margin: 0.5rem 0;
 }
+
+/* -------------------- Toast -------------------- */
+#toast {
+    max-width: min(90vw, 420px);
+    padding: 14px 18px;
+    border-radius: 10px;
+
+    font-size: 0.95rem;
+    line-height: 1.4;
+
+    background: #1f2937;
+    /* neutral-800 */
+    color: #ffffff;
+
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Visible state */
+#toast {
+    transform: translateY(8px);
+    opacity: 0;
+}
+
+#toast.toast--visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Error variant (future-proof) */
+#toast.toast--error {
+    background: #7f1d1d;
+    /* dark red */
+    border-left: 4px solid #ef4444;
+}
+
+@media (max-width: 640px) {
+    #toast {
+        right: 50%;
+        transform: translateX(50%) translateY(8px);
+    }
+
+    #toast.toast--visible {
+        transform: translateX(50%) translateY(0);
+    }
+}

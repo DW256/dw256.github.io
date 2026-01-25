@@ -5,7 +5,8 @@ import {
     resolveImagePaths
 } from "./markdown.js";
 
-import { openModal } from "./modal.js";
+import { showToast } from "./toast.js";
+import { openModal, clearProjectFromURL } from "./modal.js";
 
 const allProjects = [];
 let activeFilters = getFiltersFromURL();
@@ -28,6 +29,21 @@ function renderLinks(links) {
       `).join("")}
     </div>
   `;
+}
+
+function resolveProjectFromURL({ replaceState = true } = {}) {
+    const projectId = getProjectFromURL();
+    if (!projectId) return;
+
+    const match = allProjects.find(p => p.data.id === projectId);
+
+    if (!match) {
+        showToast("Project not found", { type: "error" });
+        clearProjectFromURL();
+        return;
+    }
+
+    openModal(match.data, match.body, { replaceState });
 }
 
 /* ---------- project grid skeleton ---------- */
@@ -69,13 +85,7 @@ async function loadProjects() {
     renderFilters(allTechs);
     renderProjects();
 
-    const projectFromURL = getProjectFromURL();
-    if (projectFromURL) {
-        const match = allProjects.find(p => p.data.id === projectFromURL);
-        if (match) {
-            openModal(match.data, match.body, { replaceState: true });
-        }
-    }
+    resolveProjectFromURL({ replaceState: true });
 }
 
 /* ---------- filters ---------- */
@@ -582,16 +592,10 @@ loadSkills("skills-content", "./content/skills.md");
 loadExperienceTimeline("experience-content", "./content/experience.md");
 
 window.addEventListener("popstate", () => {
-    const params = new URLSearchParams(window.location.search);
-    const projectId = params.get("project");
-
-    if (!projectId) {
+    if (!getProjectFromURL()) {
         closeModal();
         return;
     }
 
-    const match = allProjects.find(p => p.data.id === projectId);
-    if (match) {
-        openModal(match.data, match.body, { replaceState: true });
-    }
+    resolveProjectFromURL({ replaceState: true });
 });

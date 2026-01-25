@@ -305,7 +305,7 @@ export function closeModal() {
     clearProjectFromURL();
 }
 
-function clearProjectFromURL() {
+export function clearProjectFromURL() {
     const params = new URLSearchParams(window.location.search);
     params.delete("project");
 
