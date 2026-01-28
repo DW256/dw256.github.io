@@ -100,21 +100,27 @@ export async function loadIntro(path) {
 
         Array.from(downloadUl.querySelectorAll("a")).forEach((a, index) => {
             const href = a.getAttribute("href");
-            const text = a.textContent.trim();
+            const label = a.textContent.trim();
 
             const btn = document.createElement("a");
             btn.href = href;
             btn.target = "_blank";
             btn.rel = "noopener noreferrer";
-            btn.textContent = text;
 
             btn.className =
                 index === 0
-                    ? "inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl " +
+                    ? "inline-flex items-center justify-center gap-2 px-8 py-4 text-lg font-semibold rounded-xl " +
                     "bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition"
-                    : "inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl " +
+                    : "inline-flex items-center justify-center gap-2 px-8 py-4 text-lg font-semibold rounded-xl " +
                     "border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition";
 
+            const iconEl = document.createElement("i");
+            iconEl.className = "fa-solid fa-angles-down";
+
+            const span = document.createElement("span");
+            span.textContent = label;
+
+            btn.append(iconEl, span);
             ctaWrapper.appendChild(btn);
         });
 
@@ -188,7 +194,7 @@ export async function loadExperienceTimeline(id, path) {
 
             let isPresent = false;
             let next = node.nextElementSibling;
-            while (next && !["H2","H3"].includes(next.tagName)) {
+            while (next && !["H2", "H3"].includes(next.tagName)) {
                 if (next.textContent.includes("Present")) { isPresent = true; break; }
                 next = next.nextElementSibling;
             }
@@ -215,7 +221,7 @@ export async function loadExperienceTimeline(id, path) {
 
             const descNodes = [];
             let descNext = node.nextElementSibling;
-            while (descNext && !["H2","H3"].includes(descNext.tagName)) {
+            while (descNext && !["H2", "H3"].includes(descNext.tagName)) {
                 descNodes.push(descNext.cloneNode(true));
                 descNext = descNext.nextElementSibling;
             }
