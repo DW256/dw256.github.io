@@ -248,49 +248,81 @@ export async function loadCertification(id, path) {
     container.innerHTML = "";
 
     for (const block of blocks) {
-        const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+        const lines = block
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
 
         const title = lines[0];
 
-        const iconMatch = lines.find(l => l.startsWith("![icon]"))?.match(/\((.*?)\)/);
+        const iconMatch = lines.find((l) => l.startsWith("![icon]"))?.match(/\((.*?)\)/);
         const icon = iconMatch ? iconMatch[1] : FALLBACK_ICON;
 
-        const meta = lines.find(l => !l.startsWith("![icon]") && !l.startsWith("[") && !l.startsWith("Skills:") && l !== title) ?? "";
+        const meta =
+            lines.find(
+                (l) =>
+                    !l.startsWith("![icon]") &&
+                    !l.startsWith("[") &&
+                    !l.startsWith("Skills:") &&
+                    l !== title
+            ) ?? "";
 
-        const skillsLine = lines.find(l => l.startsWith("Skills:"));
+        const skillsLine = lines.find((l) => l.startsWith("Skills:"));
         const skills = skillsLine
-            ? skillsLine.replace("Skills:", "").split(",").map(s => s.trim())
+            ? skillsLine.replace("Skills:", "").split(",").map((s) => s.trim()).filter(Boolean)
             : [];
 
-        const links = [...block.matchAll(/\[(.*?)\]\((.*?)\)/g)]
-            .map(m => ({ label: m[1], url: m[2] }));
+        // Parse links once, and use label "tags" to select the right URLs
+        const links = [...block.matchAll(/\[(.*?)\]\((.*?)\)/g)].map((m) => ({
+            labelRaw: (m[1] || "").trim(),
+            label: (m[1] || "").trim().toLowerCase(),
+            url: (m[2] || "").trim(),
+        }));
 
-        const credential = links.find(l => !l.label.toLowerCase().includes("pdf"))?.url;
-        const pdf = links.find(l => l.label.toLowerCase().includes("pdf"))?.url;
+        // Tag-based selection (source of truth)
+        const credential =
+            links.find((l) => l.label === "view credential")?.url ||
+            links.find((l) => l.label === "credential")?.url ||
+            links.find((l) => l.label === "verify")?.url ||
+            links.find((l) => l.label === "badge")?.url ||
+            "";
+
+        const pdf =
+            links.find((l) => l.label === "view certificate (pdf)")?.url ||
+            links.find((l) => l.label === "pdf")?.url ||
+            links.find((l) => l.label.includes("pdf"))?.url ||
+            links.find((l) => /\.pdf(\?|#|$)/i.test(l.url))?.url ||
+            "";
 
         const card = document.createElement("div");
         card.className = "cert-card";
 
         card.innerHTML = `
             <img class="cert-icon"
-                 src="${icon}"
-                 onerror="this.src='${FALLBACK_ICON}'" />
+                src="${icon}"
+                onerror="this.src='${FALLBACK_ICON}'" />
 
             <div class="cert-body">
                 <h3>${title}</h3>
                 <div class="cert-meta">${meta}</div>
 
-                ${skills.length ? `
-                    <div class="flex flex-wrap gap-2 mt-2">
-                        ${skills.map(s =>
-                        `<span class=" px-2.5 py-0.5 text-xs font-medium rounded-full bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">${s}</span>`
-                        ).join("")}
-                    </div>
-                ` : ""}
+                ${skills.length
+                ? `
+                <div class="flex flex-wrap gap-2 mt-2">
+                    ${skills
+                    .map(
+                        (s) =>
+                            `<span class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">${s}</span>`
+                    )
+                    .join("")}
+                </div>
+                `
+                : ""
+            }
 
                 <div class="cert-links">
-                    ${credential ? `<a href="${credential}" target="_blank">Credential</a>` : ""}
-                    ${pdf ? `<a href="${pdf}" target="_blank">PDF</a>` : ""}
+                ${credential ? `<a href="${credential}" target="_blank" rel="noopener">Credential</a>` : ""}
+                ${pdf ? `<a href="${pdf}" target="_blank" rel="noopener">PDF</a>` : ""}
                 </div>
             </div>
         `;
