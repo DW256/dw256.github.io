@@ -238,7 +238,7 @@ export async function loadExperienceTimeline(id, path) {
 }
 
 /* ---------- Load certifications ---------- */
-const FALLBACK_ICON = "/icons/certificate.png";
+const FALLBACK_ICON = "/icons/certificate.jpg";
 
 export async function loadCertification(id, path) {
     const container = document.getElementById(id);
