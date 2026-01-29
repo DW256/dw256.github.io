@@ -3,6 +3,7 @@ import {
     loadIntro,
     loadSkills,
     loadExperienceTimeline,
+    loadCertification,
 } from "./contentLoader.js";
 
 import {
@@ -373,6 +374,7 @@ loadIntro("./content/intro.md");
 loadProjects();
 loadSkills("skills-content", "./content/skills.md");
 loadExperienceTimeline("experience-content", "./content/experience.md");
+loadCertification("certifications-content","./content/certification.md");
 
 /* ---------- modal events ---------- */
 

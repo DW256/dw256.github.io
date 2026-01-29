@@ -144,3 +144,44 @@ html {
         transform: translateX(50%) translateY(0);
     }
 }
+
+/* Certifications container */
+#certifications-content {
+    @apply flex flex-col gap-6;
+}
+
+.cert-card {
+    @apply flex gap-4 pb-6;
+}
+
+.cert-icon {
+    @apply w-12 h-12 rounded-md object-cover flex-shrink-0 bg-white;
+}
+
+.cert-body {
+    @apply flex flex-col gap-1;
+}
+
+.cert-body h3 {
+    @apply text-base font-semibold leading-snug;
+}
+
+.cert-meta {
+    @apply text-sm text-neutral-600 dark:text-neutral-400;
+}
+
+.cert-links {
+    @apply flex gap-4 mt-1;
+}
+
+.cert-links a {
+    @apply inline-flex items-center justify-center
+           px-3 py-1.5
+           text-sm font-medium
+           rounded-full
+           border border-neutral-300 dark:border-neutral-600
+           text-neutral-800 dark:text-neutral-200
+           bg-white dark:bg-transparent
+           hover:bg-neutral-100 dark:hover:bg-neutral-800
+           transition;
+}

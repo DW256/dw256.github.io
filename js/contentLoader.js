@@ -1,4 +1,3 @@
-// contentLoader.js
 import { fetchMarkdown } from "./markdown.js";
 
 /* ---------- Load meta ---------- */
@@ -236,4 +235,66 @@ export async function loadExperienceTimeline(id, path) {
     });
 
     container.appendChild(timeline);
+}
+
+/* ---------- Load certifications ---------- */
+const FALLBACK_ICON = "/icons/certificate.png";
+
+export async function loadCertification(id, path) {
+    const container = document.getElementById(id);
+    const md = await fetchMarkdown(path);
+
+    const blocks = md.split(/^### /gm).filter(Boolean);
+    container.innerHTML = "";
+
+    for (const block of blocks) {
+        const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+
+        const title = lines[0];
+
+        const iconMatch = lines.find(l => l.startsWith("![icon]"))?.match(/\((.*?)\)/);
+        const icon = iconMatch ? iconMatch[1] : FALLBACK_ICON;
+
+        const meta = lines.find(l => !l.startsWith("![icon]") && !l.startsWith("[") && !l.startsWith("Skills:") && l !== title) ?? "";
+
+        const skillsLine = lines.find(l => l.startsWith("Skills:"));
+        const skills = skillsLine
+            ? skillsLine.replace("Skills:", "").split(",").map(s => s.trim())
+            : [];
+
+        const links = [...block.matchAll(/\[(.*?)\]\((.*?)\)/g)]
+            .map(m => ({ label: m[1], url: m[2] }));
+
+        const credential = links.find(l => !l.label.toLowerCase().includes("pdf"))?.url;
+        const pdf = links.find(l => l.label.toLowerCase().includes("pdf"))?.url;
+
+        const card = document.createElement("div");
+        card.className = "cert-card";
+
+        card.innerHTML = `
+            <img class="cert-icon"
+                 src="${icon}"
+                 onerror="this.src='${FALLBACK_ICON}'" />
+
+            <div class="cert-body">
+                <h3>${title}</h3>
+                <div class="cert-meta">${meta}</div>
+
+                ${skills.length ? `
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        ${skills.map(s =>
+                        `<span class=" px-2.5 py-0.5 text-xs font-medium rounded-full bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">${s}</span>`
+                        ).join("")}
+                    </div>
+                ` : ""}
+
+                <div class="cert-links">
+                    ${credential ? `<a href="${credential}" target="_blank">Credential</a>` : ""}
+                    ${pdf ? `<a href="${pdf}" target="_blank">PDF</a>` : ""}
+                </div>
+            </div>
+        `;
+
+        container.appendChild(card);
+    }
 }
