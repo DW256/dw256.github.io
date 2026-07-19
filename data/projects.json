@@ -2,6 +2,7 @@
   {
     "id": "epicon-x",
     "title": "Epic Conquest: X",
+    "summary": "Epic Conquest X is an anime-style action RPG set in a lighthearted post-apocalyptic world, designed as a live-service mobile game with ongoing content updates.",
     "tech": [
       "Unity",
       "C#",
@@ -10,11 +11,16 @@
       "UniTask"
     ],
     "thumbnail": "assets/images/ecx-thumb.png",
-    "order": 1
+    "order": 1,
+    "links": {
+      "playstore": "https://play.google.com/store/apps/details?id=com.gacogames.epiconx&hl=en",
+      "video": "https://youtu.be/Bt9-XZHvgC0"
+    }
   },
   {
     "id": "treeky-dns",
     "title": "Treeky: Dine & Serve",
+    "summary": "Treeky: Dine & Serve is a UI-driven Match-3 game with engaging mechanics and charming visuals.",
     "tech": [
       "Unity",
       "C#",
@@ -22,37 +28,56 @@
       "PlayFab"
     ],
     "thumbnail": "assets/images/treeky-thumb.png",
-    "order": 2
+    "order": 2,
+    "links": {
+      "playstore": "https://play.google.com/store/apps/details?id=com.SkypillarStudio.Match3&hl=id",
+      "video": "https://youtu.be/iIX5AlCNEP0"
+    }
   },
   {
     "id": "scriptableobject-manager",
     "title": "ScriptableObject Manager for Unity",
+    "summary": "Unity Editor tooling for managing and batch-editing ScriptableObject data.",
     "tech": [
       "Unity",
       "C#",
       "ScriptableObject"
     ],
     "thumbnail": "assets/images/som-tb.png",
-    "order": 3
+    "order": 3,
+    "links": {
+      "repo": "https://github.com/DW256/ScriptableObject-Manager"
+    }
   },
   {
     "id": "blacksmith2024",
     "title": "Elric Mini Blacksmith Shop",
+    "summary": "Elric Mini Blacksmith Shop is a casual simulation management game centered on crafting, where players manage time, resources, and production flow to fulfill NPC orders in a small blacksmith shop.",
     "tech": [
       "Unity",
       "C#"
     ],
     "thumbnail": "assets/images/blacksmith2024-tb.png",
-    "order": 4
+    "order": 4,
+    "links": {
+      "itch": "https://bodybody.itch.io/elric-mini-blacksmith-shop",
+      "video": "https://www.youtube.com/watch?v=frfED9U14-I"
+    }
   },
   {
     "id": "sol2024",
     "title": "Seed of Light",
+    "summary": "Seed of Light is a tower defense game set in a demon-dominated world, where players strategically deploy allies and defenses to repel demonic forces under real-time combat conditions.",
     "tech": [
       "Unity",
       "C#"
     ],
     "thumbnail": "assets/images/sol2024-tb.jpg",
-    "order": 5
+    "order": 5,
+    "links": {
+      "itch": "https://dw-256.itch.io/seed-of-light",
+      "repo": "https://github.com/DW256/seed-of-light",
+      "video": "https://www.youtube.com/watch?v=PH3c9m83pCo"
+    }
   }
 ]

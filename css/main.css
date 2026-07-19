@@ -185,3 +185,24 @@ html {
            hover:bg-neutral-100 dark:hover:bg-neutral-800
            transition;
 }
+
+/* -------------------- Reduced motion -------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .carousel-slide img {
+        transition: none;
+    }
+
+    .carousel-slide.active img {
+        transform: none;
+    }
+
+    #carousel-track {
+        transition: none;
+    }
+
+    .animate-ping,
+    .animate-pulse,
+    .animate-spin {
+        animation: none;
+    }
+}

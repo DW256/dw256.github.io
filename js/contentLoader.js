@@ -1,10 +1,11 @@
 import { fetchMarkdown } from "./markdown.js";
+import { mdToHtml } from "./sanitize.js";
 
 /* ---------- Load meta ---------- */
 export async function loadMeta(path) {
     const md = await fetchMarkdown(path);
     const temp = document.createElement("div");
-    temp.innerHTML = marked.parse(md);
+    temp.innerHTML = mdToHtml(md);
 
     const h1 = temp.querySelector("h1");
     if (h1) document.title = h1.textContent;
@@ -25,7 +26,7 @@ export async function loadMeta(path) {
 export async function loadIntro(path) {
     const container = document.getElementById("intro");
     const md = await fetchMarkdown(path);
-    const html = marked.parse(md);
+    const html = mdToHtml(md);
 
     const temp = document.createElement("div");
     temp.innerHTML = html;
@@ -133,7 +134,7 @@ export async function loadSkills(id, path) {
     if (!container) return;
 
     const raw = await fetchMarkdown(path);
-    const html = marked.parse(raw);
+    const html = mdToHtml(raw);
 
     const temp = document.createElement("div");
     temp.innerHTML = html;
@@ -177,7 +178,7 @@ export async function loadSkills(id, path) {
 export async function loadExperienceTimeline(id, path) {
     const container = document.getElementById(id);
     const raw = await fetchMarkdown(path);
-    const html = marked.parse(raw);
+    const html = mdToHtml(raw);
 
     const temp = document.createElement("div");
     temp.innerHTML = html;
@@ -297,36 +298,63 @@ export async function loadCertification(id, path) {
         const card = document.createElement("div");
         card.className = "cert-card";
 
-        card.innerHTML = `
-            <img class="cert-icon"
-                src="${icon}"
-                onerror="this.src='${FALLBACK_ICON}'" />
+        const iconEl = document.createElement("img");
+        iconEl.className = "cert-icon";
+        iconEl.alt = "";
+        iconEl.src = /^https?:\/\//i.test(icon) || icon.startsWith("/") || icon.startsWith("./")
+            ? icon
+            : FALLBACK_ICON;
+        iconEl.onerror = () => {
+            iconEl.onerror = null;
+            iconEl.src = FALLBACK_ICON;
+        };
+        card.appendChild(iconEl);
 
-            <div class="cert-body">
-                <h3>${title}</h3>
-                <div class="cert-meta">${meta}</div>
+        const bodyEl = document.createElement("div");
+        bodyEl.className = "cert-body";
 
-                ${skills.length
-                ? `
-                <div class="flex flex-wrap gap-2 mt-2">
-                    ${skills
-                    .map(
-                        (s) =>
-                            `<span class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">${s}</span>`
-                    )
-                    .join("")}
-                </div>
-                `
-                : ""
-            }
+        const titleEl = document.createElement("h3");
+        titleEl.textContent = title;
+        bodyEl.appendChild(titleEl);
 
-                <div class="cert-links">
-                ${credential ? `<a href="${credential}" target="_blank" rel="noopener">Credential</a>` : ""}
-                ${pdf ? `<a href="${pdf}" target="_blank" rel="noopener">PDF</a>` : ""}
-                </div>
-            </div>
-        `;
+        if (meta) {
+            const metaEl = document.createElement("div");
+            metaEl.className = "cert-meta";
+            metaEl.textContent = meta;
+            bodyEl.appendChild(metaEl);
+        }
 
+        if (skills.length) {
+            const skillsEl = document.createElement("div");
+            skillsEl.className = "flex flex-wrap gap-2 mt-2";
+            skills.forEach((s) => {
+                const pill = document.createElement("span");
+                pill.className =
+                    "px-2.5 py-0.5 text-xs font-medium rounded-full bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700";
+                pill.textContent = s;
+                skillsEl.appendChild(pill);
+            });
+            bodyEl.appendChild(skillsEl);
+        }
+
+        const linksEl = document.createElement("div");
+        linksEl.className = "cert-links";
+
+        const addCertLink = (url, label) => {
+            if (!/^https?:\/\//i.test(url)) return;
+            const a = document.createElement("a");
+            a.href = url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = label;
+            linksEl.appendChild(a);
+        };
+
+        addCertLink(credential, "Credential");
+        addCertLink(pdf, "PDF");
+        if (linksEl.children.length) bodyEl.appendChild(linksEl);
+
+        card.appendChild(bodyEl);
         container.appendChild(card);
     }
 }

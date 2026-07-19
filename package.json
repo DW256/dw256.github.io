@@ -1,5 +1,13 @@
 {
+  "name": "dw256.github.io",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
+  "scripts": {
+    "build:css": "tailwindcss -i ./css/main.css -o ./css/main2.css --minify",
+    "build:projects": "node generate-projects.js",
+    "build": "npm run build:projects && npm run build:css"
+  },
   "dependencies": {
     "@tailwindcss/cli": "^4.1.18",
     "gray-matter": "^4.0.3",

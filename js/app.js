@@ -9,14 +9,19 @@ import {
 import {
     fetchMarkdown,
     parseFrontmatter,
-    validateProjectFrontmatter,
     resolveImagePaths,
 } from "./markdown.js";
 
 import { showToast } from "./toast.js";
-import { openModal, closeModal, clearProjectFromURL } from "./modal.js";
+import {
+    openModal,
+    setModalBody,
+    setModalError,
+    closeModal,
+    clearProjectFromURL,
+} from "./modal.js";
 
-const allProjects = [];
+let allProjects = [];
 let activeFilters = getFiltersFromURL();
 
 const projectGrid = document.getElementById("project-grid");
@@ -47,11 +52,34 @@ function setProjectToURL(projectId) {
     );
 }
 
+function reportLoadError(section, err) {
+    console.error(`[Portfolio] Failed to load ${section}:`, err);
+    showToast(`Failed to load ${section}`, { type: "error" });
+}
+
+async function getProjectBody(id) {
+    const mdPath = `./content/projects/${id}.md`;
+    let raw = await fetchMarkdown(mdPath);
+    raw = resolveImagePaths(raw, mdPath);
+    return parseFrontmatter(raw).body;
+}
+
+async function showProject(data) {
+    openModal(data);
+    try {
+        const body = await getProjectBody(data.id);
+        setModalBody(data.id, body);
+    } catch (err) {
+        console.error(`[Portfolio] Failed to load project ${data.id}:`, err);
+        setModalError(data.id);
+    }
+}
+
 function resolveProjectFromURL() {
     const projectId = getProjectFromURL();
     if (!projectId) return;
 
-    const match = allProjects.find((p) => p.data.id === projectId);
+    const match = allProjects.find((p) => p.id === projectId);
 
     if (!match) {
         showToast("Project not found", { type: "error" });
@@ -62,7 +90,7 @@ function resolveProjectFromURL() {
         return;
     }
 
-    openModal(match.data, match.body);
+    showProject(match);
 }
 
 /**
@@ -116,19 +144,27 @@ function showGridSkeleton(count = 6) {
 async function loadProjects() {
     showGridSkeleton(6);
 
-    const res = await fetch("./data/projects.json");
-    const manifest = await res.json();
-
-    for (const entry of manifest.sort((a, b) => a.order - b.order)) {
-        const mdPath = `./content/projects/${entry.id}.md`;
-        let raw = await fetchMarkdown(mdPath);
-        raw = resolveImagePaths(raw, mdPath);
-        const { data, body } = parseFrontmatter(raw);
-        if (!validateProjectFrontmatter(data, entry.id)) return;
-        allProjects.push({ data, body });
+    let manifest;
+    try {
+        const res = await fetch("./data/projects.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        manifest = await res.json();
+    } catch (err) {
+        console.error("[Portfolio] Failed to load projects:", err);
+        projectGrid.innerHTML = "";
+        const msg = document.createElement("div");
+        msg.textContent = "Unable to load projects. Please try again later.";
+        msg.className =
+            "text-center text-neutral-500 dark:text-neutral-400 py-10";
+        msg.setAttribute("role", "status");
+        projectGrid.appendChild(msg);
+        showToast("Failed to load projects", { type: "error" });
+        return;
     }
 
-    const allTechs = [...new Set(allProjects.flatMap((p) => p.data.tech))].sort();
+    allProjects = manifest.sort((a, b) => a.order - b.order);
+
+    const allTechs = [...new Set(allProjects.flatMap((p) => p.tech))].sort();
     activeFilters = activeFilters.filter((f) => f === "All" || allTechs.includes(f));
     if (activeFilters.length === 0) {
         activeFilters = ["All"];
@@ -154,6 +190,7 @@ function renderFilters(techs) {
 
         const btn = document.createElement("button");
         btn.textContent = tech;
+        btn.setAttribute("aria-pressed", String(isActive));
         btn.className = `
       px-3 py-1.5 text-sm border rounded-full transition
       hover:bg-neutral-100 dark:hover:bg-gray-700 focus:ring
@@ -197,11 +234,11 @@ function renderProjects() {
     const filteredProjects = allProjects.filter(
         (p) =>
             activeFilters.includes("All") ||
-            activeFilters.some((f) => p.data.tech.includes(f))
+            activeFilters.some((f) => p.tech.includes(f))
     );
 
     filteredProjects.forEach((p) => {
-        const card = renderProjectCard(p.data, p.body);
+        const card = renderProjectCard(p);
         card.style.opacity = 0;
         card.style.transform = "scale(0.95)";
         projectGrid.appendChild(card);
@@ -225,7 +262,7 @@ function renderProjects() {
     }
 }
 
-function renderProjectCard(data, body) {
+function renderProjectCard(data) {
     const card = document.createElement("button");
     card.className =
         "text-left border rounded-xl p-5 transition hover:border-neutral-400 dark:hover:border-gray-500 hover:shadow-sm focus:outline-none focus:ring bg-white dark:bg-gray-800 text-neutral-900 dark:text-neutral-100";
@@ -240,10 +277,14 @@ function renderProjectCard(data, body) {
 
     const img = document.createElement("img");
     img.src = data.thumbnail;
+    img.alt = `${data.title} thumbnail`;
     img.loading = "lazy";
     img.className = "w-full h-40 object-cover rounded-lg";
     img.onload = () => skeleton.remove();
-    img.onerror = () => (img.src = "assets/images/fallback.png");
+    img.onerror = () => {
+        img.onerror = null;
+        img.src = "assets/images/fallback.png";
+    };
 
     imgWrapper.appendChild(img);
     card.appendChild(imgWrapper);
@@ -268,7 +309,7 @@ function renderProjectCard(data, body) {
     card.onclick = () => {
         // Push URL first so Back closes modal naturally
         setProjectToURL(data.id);
-        openModal(data, body);
+        showProject(data);
     };
 
     return card;
@@ -369,12 +410,18 @@ window
 
 /* ---------- bootstrap ---------- */
 
-loadMeta("./content/meta.md");
-loadIntro("./content/intro.md");
+loadMeta("./content/meta.md").catch((err) => reportLoadError("meta", err));
+loadIntro("./content/intro.md").catch((err) => reportLoadError("intro", err));
 loadProjects();
-loadSkills("skills-content", "./content/skills.md");
-loadExperienceTimeline("experience-content", "./content/experience.md");
-loadCertification("certifications-content","./content/certification.md");
+loadSkills("skills-content", "./content/skills.md").catch((err) =>
+    reportLoadError("skills", err)
+);
+loadExperienceTimeline("experience-content", "./content/experience.md").catch((err) =>
+    reportLoadError("experience", err)
+);
+loadCertification("certifications-content", "./content/certification.md").catch((err) =>
+    reportLoadError("certifications", err)
+);
 
 /* ---------- modal events ---------- */
 

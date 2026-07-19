@@ -1,4 +1,5 @@
 import { extractImagesFromMarkdown, removeImagesFromMarkdown } from "./markdown.js";
+import { mdToHtml } from "./sanitize.js";
 
 const modalRoot = document.getElementById("modal-root");
 const modalBackdrop = document.getElementById("modal-backdrop");
@@ -8,6 +9,7 @@ const modalBody = document.getElementById("modal-body");
 const modalClose = document.getElementById("modal-close");
 
 let lastFocusedElement = null;
+let currentProject = null;
 let currentSlide = 0;
 let slideImages = [];
 let autoplayInterval = null;
@@ -16,6 +18,8 @@ let resumeTimeout = null;
 const AUTOPLAY_DELAY = 4000;
 const RESUME_DELAY = 3000;
 const SWIPE_THRESHOLD = 30;
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 /* ---------- focus helpers ---------- */
 function getFocusableElements() {
@@ -43,6 +47,7 @@ function trapFocus(e) {
 /* ---------- carousel helpers ---------- */
 function startAutoplay() {
     stopAutoplay();
+    if (reduceMotion.matches) return;
     if (slideImages.length <= 1) return;
     autoplayInterval = setInterval(() => showSlide(currentSlide + 1), AUTOPLAY_DELAY);
 }
@@ -71,7 +76,7 @@ function createCarousel(images) {
     track.className = "flex transition-transform duration-500 ease-in-out";
     track.id = "carousel-track";
 
-    images.forEach(({ src, caption, fullSrc }, idx) => {
+    images.forEach(({ src, caption, alt }, idx) => {
         const container = document.createElement("div");
         container.className = "relative w-full flex-shrink-0 carousel-slide h-64";
         container.setAttribute("role", "group");
@@ -85,7 +90,7 @@ function createCarousel(images) {
 
         const img = document.createElement("img");
         img.src = src || "assets/images/fallback.png";
-        img.dataset.fullSrc = fullSrc || src || "assets/images/fallback.png";
+        img.alt = alt || caption || "";
         img.loading = "lazy";
         img.className =
             "w-full h-full object-contain rounded-lg transition-opacity duration-500 opacity-0 relative";
@@ -94,6 +99,7 @@ function createCarousel(images) {
             skeleton.remove();
         };
         img.onerror = () => {
+            img.onerror = null;
             img.src = "assets/images/fallback.png";
             skeleton.style.opacity = 1;
         };
@@ -193,11 +199,6 @@ function showSlide(index) {
     const total = slides.length;
     currentSlide = (index + total) % total;
 
-    const activeImg = slides[currentSlide].querySelector("img");
-    if (activeImg && activeImg.src !== activeImg.dataset.fullSrc) {
-        activeImg.src = activeImg.dataset.fullSrc;
-    }
-
     Array.from(slides).forEach((slide, idx) => slide.classList.toggle("active", idx === currentSlide));
     track.style.transform = `translateX(-${currentSlide * 100}%)`;
 
@@ -215,11 +216,8 @@ function showSlide(index) {
     });
 }
 
-/* ---------- modal API ---------- */
-export function openModal(projectData, markdownBody) {
-    lastFocusedElement = document.activeElement;
-
-    modalTitle.textContent = projectData.title;
+/* ---------- modal body rendering ---------- */
+function renderBody(projectData, markdownBody) {
     modalBody.innerHTML = "";
 
     slideImages = extractImagesFromMarkdown(markdownBody);
@@ -243,10 +241,11 @@ export function openModal(projectData, markdownBody) {
 
     const mdContent = document.createElement("div");
     mdContent.className = "prose dark:prose-invert max-w-none mt-4";
-    mdContent.innerHTML = marked.parse(markdownWithoutImages);
+    mdContent.innerHTML = mdToHtml(markdownWithoutImages);
 
-    const h3 = mdContent.querySelector("h3");
-    if (h3 && h3.textContent === "Screenshots") h3.remove();
+    mdContent.querySelectorAll("h2, h3").forEach((h) => {
+        if (h.textContent.trim().toLowerCase() === "screenshots") h.remove();
+    });
 
     modalBody.appendChild(mdContent);
 
@@ -255,10 +254,12 @@ export function openModal(projectData, markdownBody) {
         linksDiv.className = "mt-6 flex flex-wrap gap-3 border-t border-gray-200 dark:border-gray-700 pt-4";
 
         Object.entries(projectData.links).forEach(([key, url]) => {
+            if (!/^https?:\/\//i.test(url)) return;
+
             const a = document.createElement("a");
             a.href = url;
             a.target = "_blank";
-            a.rel = "noopener";
+            a.rel = "noopener noreferrer";
             a.className =
                 "px-4 py-2 border rounded-md text-sm flex items-center gap-2 hover:bg-neutral-100 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 focus:ring";
 
@@ -273,8 +274,28 @@ export function openModal(projectData, markdownBody) {
             linksDiv.appendChild(a);
         });
 
-        modalBody.appendChild(linksDiv);
+        if (linksDiv.children.length) modalBody.appendChild(linksDiv);
     }
+}
+
+/* ---------- modal API ---------- */
+export function openModal(projectData) {
+    lastFocusedElement = document.activeElement;
+    currentProject = projectData;
+
+    modalTitle.textContent = projectData.title;
+    modalBody.innerHTML = "";
+
+    const spinner = document.createElement("div");
+    spinner.id = "modal-loading";
+    spinner.className = "flex justify-center py-10";
+    spinner.setAttribute("role", "status");
+
+    const spinnerDot = document.createElement("div");
+    spinnerDot.className =
+        "w-8 h-8 rounded-full border-4 border-neutral-300 dark:border-neutral-600 border-t-blue-500 animate-spin";
+    spinner.appendChild(spinnerDot);
+    modalBody.appendChild(spinner);
 
     modalRoot.classList.remove("hidden");
     document.body.style.overflow = "hidden";
@@ -283,6 +304,24 @@ export function openModal(projectData, markdownBody) {
         const focusables = getFocusableElements();
         (focusables[0] || modalPanel).focus();
     });
+}
+
+export function setModalBody(projectId, markdownBody) {
+    if (!currentProject || currentProject.id !== projectId) return;
+    if (modalRoot.classList.contains("hidden")) return;
+    renderBody(currentProject, markdownBody);
+}
+
+export function setModalError(projectId) {
+    if (!currentProject || currentProject.id !== projectId) return;
+    if (modalRoot.classList.contains("hidden")) return;
+
+    modalBody.innerHTML = "";
+    const msg = document.createElement("p");
+    msg.className = "text-neutral-500 dark:text-neutral-400 py-6 text-center";
+    msg.textContent = "Unable to load project details. Please try again later.";
+    msg.setAttribute("role", "status");
+    modalBody.appendChild(msg);
 }
 
 function getLinkIconClass(key) {
@@ -306,7 +345,9 @@ export function closeModal({ silent = false } = {}) {
     document.body.style.overflow = "";
     slideImages = [];
     currentSlide = 0;
+    currentProject = null;
     stopAutoplay();
+    if (resumeTimeout) clearTimeout(resumeTimeout);
 
     if (lastFocusedElement) {
         lastFocusedElement.focus();
@@ -364,8 +405,14 @@ document.addEventListener("keydown", (e) => {
         }
 
         if (e.key === " ") {
-            e.preventDefault();
-            autoplayInterval ? stopAutoplay() : startAutoplay();
+            const el = document.activeElement;
+            const onInteractive =
+                el && el !== document.body && el !== modalPanel &&
+                el.closest("a, button, input, textarea, select");
+            if (!onInteractive) {
+                e.preventDefault();
+                autoplayInterval ? stopAutoplay() : startAutoplay();
+            }
         }
 
         if (!keyboardUsed) {

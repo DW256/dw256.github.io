@@ -71,35 +71,12 @@ export function parseFrontmatter(md) {
     return { data, body };
 }
 
-export function validateProjectFrontmatter(data, sourceId) {
-    const errors = [];
-
-    if (!data.id) errors.push("missing `id`");
-    if (!data.title) errors.push("missing `title`");
-    if (!data.summary) errors.push("missing `summary`");
-    if (!Array.isArray(data.tech)) errors.push("`tech` must be an array");
-    if (!data.thumbnail) errors.push("missing `thumbnail`");
-
-    if (data.links && typeof data.links !== "object") {
-        errors.push("`links` must be an object");
-    }
-
-    if (errors.length) {
-        console.warn(
-            `[Portfolio] Invalid frontmatter in ${sourceId}:\n- ${errors.join("\n- ")}`
-        );
-        return false;
-    }
-
-    return true;
-}
-
 export function extractImagesFromMarkdown(md) {
     const regex = /!\[(.*?)\]\((.*?)\s*(?:"(.*?)")?\)/g;
     const images = [];
     let match;
     while ((match = regex.exec(md)) !== null) {
-        images.push({ src: match[2], caption: match[3] || "" });
+        images.push({ alt: match[1] || "", src: match[2], caption: match[3] || "" });
     }
     return images;
 }
