@@ -103,7 +103,7 @@ function createCarousel(images) {
             img.src = "assets/images/fallback.png";
             skeleton.style.opacity = 1;
         };
-        img.onclick = () => toggleFullscreen(container);
+        img.onclick = () => openLightbox(idx);
         container.appendChild(img);
 
         if (caption) {
@@ -185,9 +185,89 @@ function addSwipe(wrapper, track) {
     });
 }
 
-function toggleFullscreen(container) {
-    if (!document.fullscreenElement) container.requestFullscreen();
-    else document.exitFullscreen();
+/* ---------- lightbox ---------- */
+let lightboxEl = null;
+
+function openLightbox(index) {
+    closeLightbox();
+    currentSlide = (index + slideImages.length) % slideImages.length;
+
+    lightboxEl = document.createElement("div");
+    lightboxEl.className = "lightbox";
+    lightboxEl.setAttribute("role", "dialog");
+    lightboxEl.setAttribute("aria-modal", "true");
+    lightboxEl.setAttribute("aria-label", "Image viewer");
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "lightbox-backdrop";
+    backdrop.onclick = closeLightbox;
+
+    const figure = document.createElement("figure");
+    figure.className = "lightbox-figure";
+
+    const img = document.createElement("img");
+    img.className = "lightbox-img";
+
+    const cap = document.createElement("figcaption");
+    cap.className = "lightbox-caption";
+
+    figure.append(img, cap);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "lightbox-close";
+    closeBtn.innerHTML = "&times;";
+    closeBtn.setAttribute("aria-label", "Close image viewer");
+    closeBtn.onclick = closeLightbox;
+
+    lightboxEl.append(backdrop, figure, closeBtn);
+
+    if (slideImages.length > 1) {
+        const prev = document.createElement("button");
+        prev.className = "lightbox-nav lightbox-prev";
+        prev.innerHTML = "&#8249;";
+        prev.setAttribute("aria-label", "Previous image");
+        prev.onclick = () => lightboxNav(currentSlide - 1);
+
+        const next = document.createElement("button");
+        next.className = "lightbox-nav lightbox-next";
+        next.innerHTML = "&#8250;";
+        next.setAttribute("aria-label", "Next image");
+        next.onclick = () => lightboxNav(currentSlide + 1);
+
+        lightboxEl.append(prev, next);
+    }
+
+    document.body.appendChild(lightboxEl);
+    updateLightboxContent();
+    showSlide(currentSlide);
+    stopAutoplayTemporarily();
+    closeBtn.focus();
+}
+
+function updateLightboxContent() {
+    if (!lightboxEl) return;
+    const { src, caption, alt } = slideImages[currentSlide];
+    const img = lightboxEl.querySelector(".lightbox-img");
+    const cap = lightboxEl.querySelector(".lightbox-caption");
+    img.src = src || "assets/images/fallback.png";
+    img.alt = alt || caption || "";
+    cap.textContent = caption || "";
+    cap.style.display = caption ? "" : "none";
+}
+
+function lightboxNav(index) {
+    if (!lightboxEl) return;
+    currentSlide = (index + slideImages.length) % slideImages.length;
+    updateLightboxContent();
+    showSlide(currentSlide);
+    stopAutoplayTemporarily();
+}
+
+function closeLightbox() {
+    if (lightboxEl) {
+        lightboxEl.remove();
+        lightboxEl = null;
+    }
 }
 
 function showSlide(index) {
@@ -340,6 +420,7 @@ function getLinkIconClass(key) {
  * Use this when closing due to popstate syncing (Back/Forward).
  */
 export function closeModal({ silent = false } = {}) {
+    closeLightbox();
     modalRoot.classList.add("hidden");
     modalBody.innerHTML = "";
     document.body.style.overflow = "";
@@ -374,7 +455,7 @@ export function clearProjectFromURL() {
 let keyboardUsed = false;
 function showKeyboardLegend() {
     const legend = document.createElement("div");
-    legend.textContent = "← → arrows: navigate slides, Esc: close, F: fullscreen";
+    legend.textContent = "← → arrows: navigate slides, Esc: close, F: expand image";
     legend.className =
         "fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/70 dark:bg-gray-900/70 text-white text-xs px-3 py-1 rounded opacity-0 transition-opacity duration-300 z-50";
     document.body.appendChild(legend);
@@ -388,6 +469,13 @@ modalClose.onclick = () => closeModal();
 modalBackdrop.onclick = () => closeModal();
 
 document.addEventListener("keydown", (e) => {
+    if (lightboxEl) {
+        if (e.key === "Escape") closeLightbox();
+        if (e.key === "ArrowLeft") lightboxNav(currentSlide - 1);
+        if (e.key === "ArrowRight") lightboxNav(currentSlide + 1);
+        return;
+    }
+
     if (!modalRoot.classList.contains("hidden")) {
         trapFocus(e);
 
@@ -397,11 +485,8 @@ document.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft") showSlide(currentSlide - 1);
         if (e.key === "ArrowRight") showSlide(currentSlide + 1);
 
-        if (e.key.toLowerCase() === "f") {
-            const activeSlide = document.querySelector(
-                `#carousel-track .carousel-slide:nth-child(${currentSlide + 1}) img`
-            );
-            if (activeSlide) toggleFullscreen(activeSlide.parentElement);
+        if (e.key.toLowerCase() === "f" && slideImages.length) {
+            openLightbox(currentSlide);
         }
 
         if (e.key === " ") {
