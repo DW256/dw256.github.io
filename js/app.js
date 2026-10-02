@@ -14,6 +14,7 @@ import {
 
 import { showToast } from "./toast.js";
 import { validateManifest } from "./projectValidation.js";
+import { renderLoadError } from "./loadError.js";
 import {
     openModal,
     setModalBody,
@@ -26,6 +27,8 @@ let allProjects = [];
 let activeFilters = getFiltersFromURL();
 let allTechs = [];
 let projectsLoaded = false;
+let projectsLoading = false;
+let projectRequestVersion = 0;
 let renderedFilterKey = null;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -63,6 +66,31 @@ function reportLoadError(section, err) {
     showToast(`Failed to load ${section}`, { type: "error" });
 }
 
+function loadSection(section, id, loader) {
+    const container = document.getElementById(id);
+    let loading = false;
+    async function run() {
+        if (loading) return;
+        loading = true;
+        const restoreFocus = container.contains(document.activeElement);
+        container.setAttribute("aria-busy", "true");
+        try {
+            await loader();
+        } catch (error) {
+            reportLoadError(section, error);
+            renderLoadError(container, section, error, run);
+        } finally {
+            loading = false;
+            container.setAttribute("aria-busy", "false");
+            if (restoreFocus && !container.closest('[inert]')) {
+                container.tabIndex = -1;
+                (container.querySelector('.load-retry') || container).focus({ preventScroll: true });
+            }
+        }
+    }
+    run();
+}
+
 async function getProjectBody(id) {
     const mdPath = `./content/projects/${id}.md`;
     let raw = await fetchMarkdown(mdPath);
@@ -71,13 +99,16 @@ async function getProjectBody(id) {
 }
 
 async function showProject(data) {
+    const version = ++projectRequestVersion;
     openModal(data);
     try {
         const body = await getProjectBody(data.id);
+        if (version !== projectRequestVersion) return;
         setModalBody(data.id, body);
     } catch (err) {
+        if (version !== projectRequestVersion) return;
         console.error(`[Portfolio] Failed to load project ${data.id}:`, err);
-        setModalError(data.id);
+        setModalError(data.id, err, () => showProject(data));
     }
 }
 
@@ -148,25 +179,31 @@ function showGridSkeleton(count = 6) {
 /* ---------- projects ---------- */
 
 async function loadProjects() {
+    if (projectsLoading) return;
+    projectsLoading = true;
+    const restoreFocus = projectGrid.contains(document.activeElement);
+    projectGrid.setAttribute("aria-busy", "true");
     renderedFilterKey = null;
     showGridSkeleton(6);
 
     let manifest;
     try {
         const res = await fetch("./data/projects.json");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            const error = new Error(`HTTP ${res.status}`);
+            error.status = res.status;
+            throw error;
+        }
         manifest = validateManifest(await res.json());
     } catch (err) {
         console.error("[Portfolio] Failed to load projects:", err);
-        projectGrid.innerHTML = "";
-        const msg = document.createElement("div");
-        msg.textContent = "Unable to load projects. Please try again later.";
-        msg.className =
-            "text-center text-neutral-500 dark:text-neutral-400 py-10";
-        msg.setAttribute("role", "status");
-        projectGrid.appendChild(msg);
+        const retry = renderLoadError(projectGrid, "projects", err, loadProjects);
+        if (restoreFocus) retry.focus({ preventScroll: true });
         showToast("Failed to load projects", { type: "error" });
         return;
+    } finally {
+        projectsLoading = false;
+        projectGrid.setAttribute("aria-busy", "false");
     }
 
     allProjects = manifest.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -176,6 +213,7 @@ async function loadProjects() {
 
     // After projects are loaded, sync modal from URL (direct link support)
     syncModalWithURL({ fromPopstate: false });
+    if (restoreFocus && !isModalOpen()) projectGrid.focus({ preventScroll: true });
 }
 
 /* ---------- filters ---------- */
@@ -440,17 +478,11 @@ window
 /* ---------- bootstrap ---------- */
 
 loadMeta("./content/meta.md").catch((err) => reportLoadError("meta", err));
-loadIntro("./content/intro.md").catch((err) => reportLoadError("intro", err));
+loadSection("introduction", "intro", () => loadIntro("./content/intro.md"));
 loadProjects();
-loadSkills("skills-content", "./content/skills.md").catch((err) =>
-    reportLoadError("skills", err)
-);
-loadExperienceTimeline("experience-content", "./content/experience.md").catch((err) =>
-    reportLoadError("experience", err)
-);
-loadCertification("certifications-content", "./content/certification.md").catch((err) =>
-    reportLoadError("certifications", err)
-);
+loadSection("skills", "skills-content", () => loadSkills("skills-content", "./content/skills.md"));
+loadSection("experience", "experience-content", () => loadExperienceTimeline("experience-content", "./content/experience.md"));
+loadSection("certifications", "certifications-content", () => loadCertification("certifications-content", "./content/certification.md"));
 
 /* ---------- modal events ---------- */
 
@@ -478,7 +510,7 @@ window.addEventListener("popstate", () => {
     syncModalWithURL({ fromPopstate: true });
     if (pendingFocusProject && !isModalOpen()) {
         const card = Array.from(projectGrid.children).find((el) => el.dataset.project === pendingFocusProject);
-        (card || projectGrid).focus();
+        (card || projectGrid).focus({ preventScroll: true });
     }
     pendingFocusProject = null;
 });

@@ -1,14 +1,23 @@
 const mdCache = new Map();
+const pendingMarkdown = new Map();
 
-export async function fetchMarkdown(path) {
-    if (mdCache.has(path)) return mdCache.get(path);
+export function fetchMarkdown(path) {
+    if (mdCache.has(path)) return Promise.resolve(mdCache.get(path));
+    if (pendingMarkdown.has(path)) return pendingMarkdown.get(path);
 
-    const res = await fetch(path);
-    if (!res.ok) throw new Error(`Failed to load ${path}`);
-
-    const text = await res.text();
-    mdCache.set(path, text);
-    return text;
+    const request = (async () => {
+        const res = await fetch(path);
+        if (!res.ok) {
+            const error = new Error(`Failed to load ${path} (HTTP ${res.status})`);
+            error.status = res.status;
+            throw error;
+        }
+        const text = await res.text();
+        mdCache.set(path, text);
+        return text;
+    })().finally(() => pendingMarkdown.delete(path));
+    pendingMarkdown.set(path, request);
+    return request;
 }
 
 export function parseFrontmatter(md) {

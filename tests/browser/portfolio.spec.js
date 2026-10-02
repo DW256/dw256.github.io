@@ -322,3 +322,179 @@ test('failed project Markdown requests show an accessible error', async ({ page 
     await ready(page, '/?project=epicon-x');
     await expect(page.locator('#modal-body [role="status"]')).toContainText('Unable to load project details');
 });
+
+for (const [section, id, file, expected] of [
+    ['introduction', 'intro', 'intro.md', 'Dwi Wahyu Aji Kurniawan'],
+    ['skills', 'skills-content', 'skills.md', 'Unity'],
+    ['experience', 'experience-content', 'experience.md', 'Gaco Games'],
+    ['certifications', 'certifications-content', 'certification.md', 'Unity Certified Associate'],
+]) {
+    test(`failed ${section} can be retried without reloading the page`, async ({ page }) => {
+        let attempts = 0;
+        await page.route(`**/content/${file}`, (route) => ++attempts === 1
+            ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue());
+        await page.goto('/');
+        const container = page.locator(`#${id}`);
+        await expect(container.getByRole('status')).toContainText('server is temporarily unavailable');
+        await container.getByRole('button', { name: `Retry ${section}`, exact: true }).click();
+        await expect(container).toContainText(expected);
+        await expect(container.locator('.load-retry')).toHaveCount(0);
+        await expect(container).toHaveAttribute('aria-busy', 'false');
+        await expect(container).toBeFocused();
+        expect(attempts).toBe(2);
+    });
+}
+
+test('project list retry resolves a pending direct project link', async ({ page }) => {
+    let attempts = 0;
+    await page.route('**/data/projects.json', (route) => ++attempts === 1
+        ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue());
+    await page.goto('/?project=epicon-x');
+    await page.getByRole('button', { name: 'Retry projects', exact: true }).click();
+    await expect(page.locator('#project-grid [data-project]')).toHaveCount(projectCount);
+    await expect(page.locator('#modal-body details')).toBeVisible();
+    await expect(page).toHaveURL('/?project=epicon-x');
+    expect(attempts).toBe(2);
+});
+
+test('project details retry recovers without adding history entries', async ({ page }) => {
+    let attempts = 0;
+    await page.route('**/content/projects/epicon-x.md', (route) => ++attempts === 1
+        ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue());
+    await ready(page, '/?project=epicon-x');
+    const historyLength = await page.evaluate(() => history.length);
+    await page.getByRole('button', { name: 'Retry project details', exact: true }).click();
+    await expect(page.locator('#modal-body details')).toBeVisible();
+    await expect(page.locator('#modal-body')).toHaveAttribute('aria-busy', 'false');
+    expect(await page.evaluate(() => history.length)).toBe(historyLength);
+    expect(attempts).toBe(2);
+});
+
+test('offline project error explains reconnecting and can recover', async ({ page, context }) => {
+    await ready(page);
+    await context.setOffline(true);
+    await page.locator('[data-project="epicon-x"]').click();
+    await expect(page.locator('#modal-body [role="status"]')).toContainText('You appear to be offline');
+    await context.setOffline(false);
+    await page.getByRole('button', { name: 'Retry project details', exact: true }).click();
+    await expect(page.locator('#modal-body details')).toBeVisible();
+});
+
+test('missing Markdown libraries offer a working page reload', async ({ page }) => {
+    let blocked = true;
+    await page.route('https://cdn.jsdelivr.net/**', (route) => blocked ? route.abort() : route.fallback());
+    await page.goto('/');
+    await expect(page.locator('#intro [role="status"]')).toContainText('Markdown libraries did not load');
+    blocked = false;
+    await page.locator('#intro').getByRole('button', { name: 'Reload page', exact: true }).click();
+    await expect(page.locator('#intro h1')).toHaveText('Dwi Wahyu Aji Kurniawan');
+});
+
+test('simultaneous Markdown loads share a single browser request', async ({ page }) => {
+    await ready(page);
+    let requests = 0;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    await page.route('**/content/projects/scriptableobject-manager.md', async (route) => {
+        requests++;
+        await gate;
+        await route.continue();
+    });
+    const result = page.evaluate(async () => {
+        const { fetchMarkdown } = await import('./js/markdown.js');
+        const path = './content/projects/scriptableobject-manager.md';
+        const [first, second] = await Promise.all([fetchMarkdown(path), fetchMarkdown(path)]);
+        return first === second && first === await fetchMarkdown(path);
+    });
+    await expect.poll(() => requests).toBe(1);
+    release();
+    expect(await result).toBe(true);
+    expect(requests).toBe(1);
+});
+
+test('modal preserves page position and remembers each project scroll independently', async ({ page }) => {
+    await ready(page);
+    const card = page.locator('[data-project="epicon-x"]');
+    await card.scrollIntoViewIfNeeded();
+    const pageY = await page.evaluate(() => window.scrollY);
+    const cardBefore = await card.boundingBox();
+    await card.click();
+    await expect(page.locator('#modal-body details')).toBeVisible();
+    const cardDuring = await card.boundingBox();
+    expect(cardDuring.y).toBeCloseTo(cardBefore.y, 0);
+    await page.locator('#modal-body details').evaluate((el) => { el.open = true; });
+    await page.locator('#modal-body').evaluate((el) => { el.scrollTop = 350; });
+    const projectY = await page.locator('#modal-body').evaluate((el) => el.scrollTop);
+    expect(projectY).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Close project details' }).click();
+    await expect(page).toHaveURL('/');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(pageY, 0);
+
+    await page.locator('[data-project="treeky-dns"]').evaluate((el) => el.click());
+    await expect(page.locator('#modal-title')).toHaveText('Treeky: Dine & Serve');
+    await expect(page.locator('#modal-body details')).toBeVisible();
+    expect(await page.locator('#modal-body').evaluate((el) => el.scrollTop)).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL('/');
+
+    await card.click();
+    await expect(page.locator('#modal-body details')).toHaveAttribute('open', '');
+    await expect.poll(() => page.locator('#modal-body').evaluate((el) => el.scrollTop)).toBeCloseTo(projectY, 0);
+    await page.goBack();
+    await expect(page.locator('#modal-root')).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(pageY, 0);
+    await page.goForward();
+    await expect(page.locator('#modal-body details')).toHaveAttribute('open', '');
+    await expect.poll(() => page.locator('#modal-body').evaluate((el) => el.scrollTop)).toBeCloseTo(projectY, 0);
+});
+
+test('modal fits mobile and short desktop viewports with a stationary close control', async ({ page }) => {
+    await ready(page);
+    for (const viewport of [{ width: 390, height: 600 }, { width: 1024, height: 360 }]) {
+        await page.setViewportSize(viewport);
+        await page.locator('[data-project="epicon-x"]').click();
+        await expect(page.locator('#modal-body details')).toBeVisible();
+        const panel = await page.locator('#modal-panel').boundingBox();
+        expect(panel.y).toBeGreaterThanOrEqual(0);
+        expect(panel.y + panel.height).toBeLessThanOrEqual(viewport.height);
+        expect(panel.x).toBeGreaterThanOrEqual(0);
+        expect(panel.x + panel.width).toBeLessThanOrEqual(viewport.width);
+        const before = await page.locator('#modal-close').boundingBox();
+        await page.locator('#modal-body').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+        const after = await page.locator('#modal-close').boundingBox();
+        expect(after.y).toBe(before.y);
+        await page.getByRole('button', { name: 'Close project details' }).click();
+        await expect(page.locator('#modal-root')).toBeHidden();
+    }
+});
+
+test('homepage SEO is present in source HTML and points to valid local assets', async ({ page, request }) => {
+    const home = `https://${fs.readFileSync('CNAME', 'utf8').trim()}/`;
+    const response = await page.goto('/?project=epicon-x&tech=Unity');
+    const source = await response.text();
+    expect(source).toContain(`<link rel="canonical" href="${home}"`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', home);
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', home);
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+    const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', image);
+    expect(source).toContain(`content="${image}"`);
+    const preview = await request.get(new URL(image).pathname);
+    expect(preview.ok()).toBe(true);
+    const bytes = await preview.body();
+    expect(bytes.readUInt32BE(16)).toBe(1200);
+    expect(bytes.readUInt32BE(20)).toBe(630);
+    const robots = await request.get('/robots.txt');
+    expect(await robots.text()).toContain(`Sitemap: ${home}sitemap.xml`);
+    const sitemap = await request.get('/sitemap.xml');
+    const xml = await sitemap.text();
+    const locations = await page.evaluate((xml) => {
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        if (doc.querySelector('parsererror')) return null;
+        return Array.from(doc.getElementsByTagName('loc'), (el) => el.textContent);
+    }, xml);
+    expect(locations).toEqual([home]);
+    const title = await page.title();
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', title);
+});

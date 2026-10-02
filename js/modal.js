@@ -1,6 +1,7 @@
 import { extractImagesFromMarkdown, removeImagesFromMarkdown } from "./markdown.js";
 import { mdToHtml } from "./sanitize.js";
 import { getFocusableElements, trapFocus, makeBackgroundInert, restoreFocus } from "./dialogFocus.js";
+import { renderLoadError } from "./loadError.js";
 
 const modalRoot = document.getElementById("modal-root");
 const modalBackdrop = document.getElementById("modal-backdrop");
@@ -19,7 +20,37 @@ let hoverPaused = false;
 let restoreBackground = null;
 let restoreLightboxBackground = null;
 let lightboxFocus = null;
-let previousOverflow = "";
+let savedPagePosition = null;
+let bodyReady = false;
+const projectPositions = new Map();
+
+function rememberProjectPosition() {
+    if (!currentProject || !bodyReady) return;
+    projectPositions.set(currentProject.id, {
+        scrollTop: modalBody.scrollTop,
+        details: Array.from(modalBody.querySelectorAll("details"), (el) => el.open),
+    });
+}
+
+function lockPageScroll() {
+    const properties = ["position", "top", "left", "width", "overflow"];
+    savedPagePosition = {
+        x: window.scrollX, y: window.scrollY,
+        styles: Object.fromEntries(properties.map((key) => [key, document.body.style[key]])),
+    };
+    Object.assign(document.body.style, {
+        position: "fixed", top: `${-savedPagePosition.y}px`, left: `${-savedPagePosition.x}px`,
+        width: "100%", overflow: "hidden",
+    });
+}
+
+function unlockPageScroll() {
+    if (!savedPagePosition) return;
+    const { x, y, styles } = savedPagePosition;
+    Object.assign(document.body.style, styles);
+    savedPagePosition = null;
+    window.scrollTo(x, y);
+}
 
 const AUTOPLAY_DELAY = 4000;
 const SWIPE_THRESHOLD = 30;
@@ -400,9 +431,10 @@ function renderBody(projectData, markdownBody) {
 
 /* ---------- modal API ---------- */
 export function openModal(projectData) {
+    rememberProjectPosition();
     if (modalRoot.classList.contains("hidden")) {
         lastFocusedElement = document.activeElement;
-        previousOverflow = document.body.style.overflow;
+        lockPageScroll();
         restoreBackground = makeBackgroundInert(modalRoot);
     }
     closeLightbox({ restore: false });
@@ -411,9 +443,12 @@ export function openModal(projectData) {
     userPaused = reduceMotion.matches;
     hoverPaused = false;
     currentProject = projectData;
+    bodyReady = false;
 
     modalTitle.textContent = projectData.title;
     modalBody.innerHTML = "";
+    modalBody.scrollTop = 0;
+    modalBody.setAttribute("aria-busy", "true");
 
     const spinner = document.createElement("div");
     spinner.id = "modal-loading";
@@ -428,7 +463,6 @@ export function openModal(projectData) {
     modalBody.appendChild(spinner);
 
     modalRoot.classList.remove("hidden");
-    document.body.style.overflow = "hidden";
 
     requestAnimationFrame(() => {
         if (modalRoot.classList.contains("hidden")) return;
@@ -441,18 +475,28 @@ export function setModalBody(projectId, markdownBody) {
     if (!currentProject || currentProject.id !== projectId) return;
     if (modalRoot.classList.contains("hidden")) return;
     renderBody(currentProject, markdownBody);
+    bodyReady = true;
+    modalBody.setAttribute("aria-busy", "false");
+    const position = projectPositions.get(projectId);
+    if (position) {
+        modalBody.querySelectorAll("details").forEach((el, index) => { el.open = position.details[index] ?? false; });
+    }
+    const project = currentProject;
+    requestAnimationFrame(() => {
+        if (currentProject === project && bodyReady && !modalRoot.classList.contains("hidden")) {
+            modalBody.scrollTop = position?.scrollTop ?? 0;
+        }
+    });
 }
 
-export function setModalError(projectId) {
+export function setModalError(projectId, error, retry) {
     if (!currentProject || currentProject.id !== projectId) return;
     if (modalRoot.classList.contains("hidden")) return;
 
-    modalBody.innerHTML = "";
-    const msg = document.createElement("p");
-    msg.className = "text-neutral-500 dark:text-neutral-400 py-6 text-center";
-    msg.textContent = "Unable to load project details. Please try again later.";
-    msg.setAttribute("role", "status");
-    modalBody.appendChild(msg);
+    stopAutoplay();
+    bodyReady = false;
+    modalBody.setAttribute("aria-busy", "false");
+    renderLoadError(modalBody, "project details", error, retry);
 }
 
 function getLinkIconClass(key) {
@@ -471,15 +515,18 @@ function getLinkIconClass(key) {
  * Use this when closing due to popstate syncing (Back/Forward).
  */
 export function closeModal({ silent = false } = {}) {
+    rememberProjectPosition();
     closeLightbox({ restore: false });
     modalRoot.classList.add("hidden");
     modalBody.innerHTML = "";
-    document.body.style.overflow = previousOverflow;
+    unlockPageScroll();
     restoreBackground?.();
     restoreBackground = null;
     slideImages = [];
     currentSlide = 0;
     currentProject = null;
+    bodyReady = false;
+    modalBody.setAttribute("aria-busy", "false");
     stopAutoplay();
 
     if (lastFocusedElement) {

@@ -48,8 +48,8 @@ export function restoreFocus(element, fallback) {
     if (element?.isConnected && (element.tabIndex >= 0 || element.hasAttribute('tabindex')) &&
         !element.matches(':disabled') && !element.closest('[inert]') &&
         !isHiddenByDetails(element) && element.getClientRects().length) {
-        element.focus();
+        element.focus({ preventScroll: true });
     } else {
-        fallback?.focus();
+        fallback?.focus({ preventScroll: true });
     }
 }

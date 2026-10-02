@@ -8,7 +8,11 @@ export async function loadMeta(path) {
     temp.innerHTML = mdToHtml(md);
 
     const h1 = temp.querySelector("h1");
-    if (h1) document.title = h1.textContent;
+    if (h1) {
+        document.title = h1.textContent;
+        document.querySelectorAll('meta[property="og:title"], meta[name="twitter:title"]')
+            .forEach((el) => { el.content = h1.textContent; });
+    }
 
     const p = temp.querySelector("p");
     if (p) {
@@ -19,6 +23,8 @@ export async function loadMeta(path) {
             document.head.appendChild(descEl);
         }
         descEl.content = p.textContent;
+        document.querySelectorAll('meta[property="og:description"], meta[name="twitter:description"]')
+            .forEach((el) => { el.content = p.textContent; });
     }
 }
 

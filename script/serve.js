@@ -8,6 +8,7 @@ const port = portArg === -1 ? 8765 : Number(process.argv[portArg + 1]);
 const types = {
     '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
     '.json': 'application/json', '.md': 'text/plain', '.png': 'image/png',
+    '.xml': 'application/xml', '.txt': 'text/plain',
     '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json',
 };
 
