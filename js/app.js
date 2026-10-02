@@ -13,6 +13,7 @@ import {
 } from "./markdown.js";
 
 import { showToast } from "./toast.js";
+import { validateManifest } from "./projectValidation.js";
 import {
     openModal,
     setModalBody,
@@ -23,12 +24,17 @@ import {
 
 let allProjects = [];
 let activeFilters = getFiltersFromURL();
+let allTechs = [];
+let projectsLoaded = false;
+let renderedFilterKey = null;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const projectGrid = document.getElementById("project-grid");
 const filterContainer = document.getElementById("project-filters");
 const modalRoot = document.getElementById("modal-root");
 
 let isSyncingFromPopstate = false;
+let pendingFocusProject = null;
 
 /* ---------- helpers ---------- */
 
@@ -48,7 +54,7 @@ function setProjectToURL(projectId) {
     history.pushState(
         { project: projectId },
         "",
-        window.location.pathname + "?" + params.toString()
+        window.location.pathname + "?" + params.toString() + window.location.hash
     );
 }
 
@@ -109,7 +115,7 @@ function syncModalWithURL({ fromPopstate = false } = {}) {
         const projectId = getProjectFromURL();
 
         // If projects aren't loaded yet, defer: loadProjects() will call sync again.
-        if (allProjects.length === 0) return;
+        if (!projectsLoaded) return;
 
         if (!projectId) {
             // URL clean => ensure modal is closed (silently if popstate)
@@ -142,13 +148,14 @@ function showGridSkeleton(count = 6) {
 /* ---------- projects ---------- */
 
 async function loadProjects() {
+    renderedFilterKey = null;
     showGridSkeleton(6);
 
     let manifest;
     try {
         const res = await fetch("./data/projects.json");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        manifest = await res.json();
+        manifest = validateManifest(await res.json());
     } catch (err) {
         console.error("[Portfolio] Failed to load projects:", err);
         projectGrid.innerHTML = "";
@@ -162,17 +169,10 @@ async function loadProjects() {
         return;
     }
 
-    allProjects = manifest.sort((a, b) => a.order - b.order);
-
-    const allTechs = [...new Set(allProjects.flatMap((p) => p.tech))].sort();
-    activeFilters = activeFilters.filter((f) => f === "All" || allTechs.includes(f));
-    if (activeFilters.length === 0) {
-        activeFilters = ["All"];
-        setFiltersToURL(activeFilters);
-    }
-
-    renderFilters(allTechs);
-    renderProjects();
+    allProjects = manifest.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    projectsLoaded = true;
+    allTechs = [...new Set(allProjects.flatMap((p) => p.tech))].sort();
+    syncFiltersWithURL();
 
     // After projects are loaded, sync modal from URL (direct link support)
     syncModalWithURL({ fromPopstate: false });
@@ -181,14 +181,18 @@ async function loadProjects() {
 /* ---------- filters ---------- */
 
 function renderFilters(techs) {
-    filterContainer.innerHTML = "";
-
     const filters = ["All", ...techs];
 
     filters.forEach((tech) => {
         const isActive = activeFilters.includes(tech);
 
-        const btn = document.createElement("button");
+        let btn = Array.from(filterContainer.children).find((el) => el.dataset.tech === tech);
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.type = "button";
+            btn.dataset.tech = tech;
+            filterContainer.appendChild(btn);
+        }
         btn.textContent = tech;
         btn.setAttribute("aria-pressed", String(isActive));
         btn.className = `
@@ -215,22 +219,18 @@ function renderFilters(techs) {
             renderProjects();
         };
 
-        filterContainer.appendChild(btn);
     });
 }
 
 /* ---------- projects rendering ---------- */
 
 function renderProjects() {
-    const oldCards = Array.from(projectGrid.children);
-
-    oldCards.forEach((card) => {
-        card.style.transition = "opacity 0.3s, transform 0.3s";
-        card.style.opacity = 0;
-        card.style.transform = "scale(0.95)";
-        setTimeout(() => card.remove(), 300);
-    });
-
+    const filterKey = JSON.stringify([...activeFilters].sort());
+    // Modal-only history changes must not rebuild cards or replay their entrance animation.
+    if (filterKey === renderedFilterKey) return;
+    const focusedProject = document.activeElement?.dataset?.project;
+    const gridHadFocus = document.activeElement === projectGrid;
+    const fragment = document.createDocumentFragment();
     const filteredProjects = allProjects.filter(
         (p) =>
             activeFilters.includes("All") ||
@@ -239,31 +239,35 @@ function renderProjects() {
 
     filteredProjects.forEach((p) => {
         const card = renderProjectCard(p);
-        card.style.opacity = 0;
-        card.style.transform = "scale(0.95)";
-        projectGrid.appendChild(card);
-
-        requestAnimationFrame(() => {
-            card.style.transition = "opacity 0.3s, transform 0.3s";
-            card.style.opacity = 1;
-            card.style.transform = "scale(1)";
-        });
+        fragment.appendChild(card);
+        if (!reduceMotion.matches) {
+            card.animate([{ opacity: 0, transform: "scale(0.95)" }, { opacity: 1, transform: "scale(1)" }], {
+                duration: 300, easing: "ease-out",
+            });
+        }
     });
 
     if (filteredProjects.length === 0) {
         const msg = document.createElement("div");
         msg.textContent = "No projects found";
         msg.className =
-            "text-center text-neutral-500 dark:text-neutral-400 py-10 opacity-0 transition-opacity duration-300";
+            "text-center text-neutral-500 dark:text-neutral-400 py-10";
         msg.setAttribute("role", "status");
         msg.setAttribute("aria-live", "polite");
-        projectGrid.appendChild(msg);
-        requestAnimationFrame(() => (msg.style.opacity = 1));
+        fragment.appendChild(msg);
+    }
+    projectGrid.replaceChildren(fragment);
+    renderedFilterKey = filterKey;
+    if ((focusedProject || gridHadFocus) && !projectGrid.closest('[inert]')) {
+        const replacement = Array.from(projectGrid.children).find((el) => el.dataset.project === focusedProject);
+        (replacement || projectGrid).focus();
     }
 }
 
 function renderProjectCard(data) {
     const card = document.createElement("button");
+    card.type = "button";
+    card.dataset.project = data.id;
     card.className =
         "text-left border rounded-xl p-5 transition hover:border-neutral-400 dark:hover:border-gray-500 hover:shadow-sm focus:outline-none focus:ring bg-white dark:bg-gray-800 text-neutral-900 dark:text-neutral-100";
 
@@ -332,8 +336,18 @@ function setFiltersToURL(filters) {
     if (filters.includes("All") || filters.length === 0) params.delete("tech");
     else params.set("tech", filters.join(","));
     const newUrl =
-        window.location.pathname + (params.toString() ? `?${params}` : "");
-    history.replaceState(null, "", newUrl);
+        window.location.pathname + (params.toString() ? `?${params}` : "") + window.location.hash;
+    history.replaceState(history.state, "", newUrl);
+}
+
+function syncFiltersWithURL() {
+    if (!projectsLoaded) return;
+    const requested = getFiltersFromURL();
+    const valid = [...new Set(requested.filter((filter) => allTechs.includes(filter)))];
+    activeFilters = requested.includes("All") || !valid.length ? ["All"] : valid;
+    setFiltersToURL(activeFilters);
+    renderFilters(allTechs);
+    renderProjects();
 }
 
 /* ---------- Theme Toggle (Light / Dark / System) ---------- */
@@ -350,6 +364,7 @@ themes.forEach(({ value, iconClass, label }) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.title = label;
+    btn.setAttribute("aria-label", `${label} theme`);
     btn.dataset.theme = value;
 
     const iconEl = document.createElement("i");
@@ -357,8 +372,12 @@ themes.forEach(({ value, iconClass, label }) => {
     btn.appendChild(iconEl);
 
     btn.addEventListener("click", () => {
-        if (value === "system") localStorage.removeItem("theme");
-        else localStorage.theme = value;
+        try {
+            if (value === "system") localStorage.removeItem("theme");
+            else localStorage.setItem("theme", value);
+        } catch {
+            // Storage can be denied; content loading must remain independent of it.
+        }
 
         applyTheme();
         updateButtons();
@@ -367,8 +386,17 @@ themes.forEach(({ value, iconClass, label }) => {
     themeContainer.appendChild(btn);
 });
 
+function getStoredTheme() {
+    try {
+        const value = localStorage.getItem("theme");
+        return ["light", "dark"].includes(value) ? value : null;
+    } catch {
+        return null;
+    }
+}
+
 function getEffectiveTheme() {
-    const stored = localStorage.getItem("theme");
+    const stored = getStoredTheme();
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     return stored === "dark" || (!stored && prefersDark) ? "dark" : "light";
 }
@@ -378,11 +406,12 @@ function applyTheme() {
 }
 
 function updateButtons() {
-    const stored = localStorage.getItem("theme") || "system";
+    const stored = getStoredTheme() || "system";
     const effective = getEffectiveTheme();
 
     themeContainer.querySelectorAll("button").forEach((btn) => {
         const isSelected = btn.dataset.theme === stored;
+        btn.setAttribute("aria-pressed", String(isSelected));
 
         btn.className =
             "p-2 rounded-full transition-all duration-200 flex items-center justify-center";
@@ -402,7 +431,7 @@ updateButtons();
 window
     .matchMedia("(prefers-color-scheme: dark)")
     .addEventListener("change", () => {
-        if (!localStorage.getItem("theme")) {
+        if (!getStoredTheme()) {
             applyTheme();
             updateButtons();
         }
@@ -435,6 +464,7 @@ modalRoot.addEventListener("modalClosed", () => {
 
     // If we opened the modal via pushState, closing should go back (so forward re-opens)
     if (history.state && history.state.project === projectId) {
+        pendingFocusProject = projectId;
         history.back();
     } else {
         // Direct-linked modal open (no state) -> just clean URL
@@ -444,5 +474,11 @@ modalRoot.addEventListener("modalClosed", () => {
 
 // Back/Forward navigation drives modal
 window.addEventListener("popstate", () => {
+    syncFiltersWithURL();
     syncModalWithURL({ fromPopstate: true });
+    if (pendingFocusProject && !isModalOpen()) {
+        const card = Array.from(projectGrid.children).find((el) => el.dataset.project === pendingFocusProject);
+        (card || projectGrid).focus();
+    }
+    pendingFocusProject = null;
 });

@@ -26,15 +26,17 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.6/lib/marked.umd.js"
         integrity="sha384-uGn1eBC40GtuBgao0epc/cz9O4Lo8/flg/10SW+69UjLI5nP31iT4UPc65Xz10Le"
         crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.12/dist/purify.min.js"
-        integrity="sha384-piCcpDdJ7qVeK4Tv8Z6Hpcr3ZBIgP16TxQTPVfsLFdZ5uDgwc3Y8Ho7oUnqf12qu"
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js"
+        integrity="sha384-a7SzOxErzJ3ZpQz0zJ32d67dSitNzPcbfybc/ykU9KJhMgZkwqfSxlhhdJRS+XGL"
         crossorigin="anonymous"></script>
     <script>
-        document.documentElement.classList.toggle(
-            "dark",
-            localStorage.theme === "dark" ||
-            (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
-        );
+        let storedTheme = null;
+        try {
+            const value = localStorage.getItem("theme");
+            if (["light", "dark"].includes(value)) storedTheme = value;
+        } catch { /* Fall back to the system theme when storage is unavailable. */ }
+        document.documentElement.classList.toggle("dark", storedTheme === "dark" ||
+            (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches));
     </script>
 </head>
 
@@ -55,8 +57,8 @@
         <!-- Projects -->
         <section id="projects">
             <h2 class="text-2xl font-semibold tracking-tight mb-10">Projects</h2>
-            <div id="project-filters" class="mb-6 flex flex-wrap gap-2"></div>
-            <div id="project-grid" class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3"></div>
+            <div id="project-filters" role="group" aria-label="Filter projects by technology" class="mb-6 flex flex-wrap gap-2"></div>
+            <div id="project-grid" tabindex="-1" class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3"></div>
         </section>
 
         <!-- Skills -->
@@ -86,14 +88,14 @@
             <div
                 class="flex justify-between items-center px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
                 <h3 id="modal-title" class="text-lg font-semibold text-neutral-900 dark:text-neutral-100"></h3>
-                <button id="modal-close"
+                <button id="modal-close" type="button" aria-label="Close project details"
                     class="text-xl leading-none text-neutral-900 dark:text-neutral-100">&times;</button>
             </div>
             <div id="modal-body" class="markdown px-6 py-6 overflow-y-auto prose dark:prose-invert"></div>
         </div>
     </div>
 
-    <div id="toast" class="pointer-events-none fixed bottom-6 right-6 z-50
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true" class="pointer-events-none fixed bottom-6 right-6 z-50
             opacity-0 transition-all duration-200 translate-y-2">
     </div>
 

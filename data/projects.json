@@ -79,5 +79,22 @@
       "repo": "https://github.com/DW256/seed-of-light",
       "video": "https://www.youtube.com/watch?v=PH3c9m83pCo"
     }
+  },
+  {
+    "id": "reconquest",
+    "title": "Reconquest",
+    "summary": "Reconquest is a 'Theseus project' rebuilt from the remnants of Epic Conquest X — a hybrid-play action RPG with a data-driven skill and puzzle framework, a cloud-save backend, and a modernized Unity client.",
+    "tech": [
+      "Unity",
+      "C#",
+      "ScriptableObject",
+      "Addressables",
+      "Cloudflare Workers"
+    ],
+    "thumbnail": "assets/images/reconquest-tb.png",
+    "order": 6,
+    "links": {
+      "itch": "https://rrads-games.itch.io/reconquest"
+    }
   }
 ]

@@ -1,5 +1,6 @@
 import { extractImagesFromMarkdown, removeImagesFromMarkdown } from "./markdown.js";
 import { mdToHtml } from "./sanitize.js";
+import { getFocusableElements, trapFocus, makeBackgroundInert, restoreFocus } from "./dialogFocus.js";
 
 const modalRoot = document.getElementById("modal-root");
 const modalBackdrop = document.getElementById("modal-backdrop");
@@ -13,54 +14,57 @@ let currentProject = null;
 let currentSlide = 0;
 let slideImages = [];
 let autoplayInterval = null;
-let resumeTimeout = null;
+let userPaused = false;
+let hoverPaused = false;
+let restoreBackground = null;
+let restoreLightboxBackground = null;
+let lightboxFocus = null;
+let previousOverflow = "";
 
 const AUTOPLAY_DELAY = 4000;
-const RESUME_DELAY = 3000;
 const SWIPE_THRESHOLD = 30;
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-/* ---------- focus helpers ---------- */
-function getFocusableElements() {
-    return modalPanel.querySelectorAll(
-        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
-    );
-}
-
-function trapFocus(e) {
-    if (e.key !== "Tab") return;
-    const focusables = getFocusableElements();
-    if (!focusables.length) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-
-    if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-    }
-}
-
 /* ---------- carousel helpers ---------- */
+function updateAutoplayControl() {
+    const button = document.getElementById("carousel-autoplay");
+    if (button) {
+        const label = userPaused ? "Play slideshow" : "Pause slideshow";
+        let icon = button.querySelector("i");
+        if (!icon) {
+            icon = document.createElement("i");
+            icon.setAttribute("aria-hidden", "true");
+            button.appendChild(icon);
+        }
+        icon.className = userPaused ? "fa-solid fa-play" : "fa-solid fa-pause";
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", String(!userPaused));
+        button.disabled = reduceMotion.matches;
+        button.title = reduceMotion.matches ? "Automatic playback is disabled by your reduced-motion preference." : label;
+    }
+    document.getElementById("carousel-track")?.setAttribute("aria-live", autoplayInterval ? "off" : "polite");
+}
+
 function startAutoplay() {
     stopAutoplay();
-    if (reduceMotion.matches) return;
-    if (slideImages.length <= 1) return;
+    const carousel = document.getElementById("carousel-track")?.closest('[role="region"]');
+    const focusPaused = carousel?.contains(document.activeElement) && document.activeElement.id !== "carousel-autoplay";
+    if (userPaused || hoverPaused || focusPaused || lightboxEl || document.hidden || !currentProject) return;
+    if (reduceMotion.matches || slideImages.length <= 1) return;
     autoplayInterval = setInterval(() => showSlide(currentSlide + 1), AUTOPLAY_DELAY);
+    updateAutoplayControl();
 }
 
 function stopAutoplay() {
     if (autoplayInterval) clearInterval(autoplayInterval);
     autoplayInterval = null;
+    updateAutoplayControl();
 }
 
-function stopAutoplayTemporarily() {
+function pauseAutoplay() {
+    userPaused = true;
     stopAutoplay();
-    if (resumeTimeout) clearTimeout(resumeTimeout);
-    resumeTimeout = setTimeout(() => startAutoplay(), RESUME_DELAY);
 }
 
 function createCarousel(images) {
@@ -70,7 +74,6 @@ function createCarousel(images) {
     wrapper.className = "relative w-full overflow-hidden mb-4 select-none";
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Project screenshots carousel");
-    wrapper.setAttribute("aria-live", "polite");
 
     const track = document.createElement("div");
     track.className = "flex transition-transform duration-500 ease-in-out";
@@ -103,8 +106,13 @@ function createCarousel(images) {
             img.src = "assets/images/fallback.png";
             skeleton.style.opacity = 1;
         };
-        img.onclick = () => openLightbox(idx);
-        container.appendChild(img);
+        const expand = document.createElement("button");
+        expand.type = "button";
+        expand.className = "carousel-expand w-full h-full";
+        expand.setAttribute("aria-label", `Expand image ${idx + 1}: ${alt || caption || 'Project screenshot'}`);
+        expand.onclick = () => openLightbox(idx);
+        expand.appendChild(img);
+        container.appendChild(expand);
 
         if (caption) {
             const capEl = document.createElement("div");
@@ -117,28 +125,41 @@ function createCarousel(images) {
         track.appendChild(container);
     });
 
-    wrapper.appendChild(track);
+    const viewport = document.createElement("div");
+    viewport.className = "carousel-viewport";
+    viewport.appendChild(track);
+    wrapper.appendChild(viewport);
 
     if (images.length > 1) {
         wrapper.className = "carousel-wrapper relative w-full overflow-hidden mb-4 select-none";
-        const prev = createButton("‹", () => (stopAutoplayTemporarily(), showSlide(currentSlide - 1)), "left-2");
-        const next = createButton("›", () => (stopAutoplayTemporarily(), showSlide(currentSlide + 1)), "right-2");
-        prev.classList.add("carousel-nav");
-        next.classList.add("carousel-nav");
-        wrapper.append(prev, next);
+        const prev = createButton("fa-chevron-left", () => (pauseAutoplay(), showSlide(currentSlide - 1)), "left-2", "Previous image");
+        const next = createButton("fa-chevron-right", () => (pauseAutoplay(), showSlide(currentSlide + 1)), "right-2", "Next image");
+        viewport.append(prev, next);
 
         const dots = document.createElement("div");
-        dots.className = "flex justify-center mt-2 gap-2";
+        dots.className = "carousel-dots";
         dots.id = "carousel-dots";
 
         images.forEach((_, idx) => {
             const dot = document.createElement("button");
-            dot.className = "w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 transition-colors";
+            dot.type = "button";
+            dot.className = "carousel-dot";
             dot.setAttribute("aria-label", `Go to slide ${idx + 1}`);
-            dot.onclick = () => (stopAutoplayTemporarily(), showSlide(idx));
+            dot.onclick = () => (pauseAutoplay(), showSlide(idx));
             dots.appendChild(dot);
         });
         wrapper.appendChild(dots);
+        const play = document.createElement("button");
+        play.type = "button";
+        play.id = "carousel-autoplay";
+        play.className = "carousel-play";
+        play.onclick = () => {
+            userPaused = !userPaused;
+            // An explicit Play action overrides a stale pointer hover pause.
+            if (!userPaused) hoverPaused = false;
+            userPaused ? stopAutoplay() : startAutoplay();
+        };
+        viewport.appendChild(play);
         addHoverPause(wrapper);
     }
 
@@ -146,17 +167,25 @@ function createCarousel(images) {
     return wrapper;
 }
 
-function createButton(label, onClick, positionClass) {
+function createButton(iconClass, onClick, positionClass, accessibleLabel) {
     const btn = document.createElement("button");
-    btn.innerHTML = label;
-    btn.className = `absolute top-1/2 -translate-y-1/2 bg-white/70 dark:bg-gray-800/70 rounded-full p-2 ${positionClass} hover:bg-white dark:hover:bg-gray-700 transition`;
+    btn.type = "button";
+    btn.setAttribute("aria-label", accessibleLabel);
+    btn.title = accessibleLabel;
+    const icon = document.createElement("i");
+    icon.className = `fa-solid ${iconClass}`;
+    icon.setAttribute("aria-hidden", "true");
+    btn.appendChild(icon);
+    btn.className = `carousel-nav ${positionClass}`;
     btn.onclick = onClick;
     return btn;
 }
 
 function addHoverPause(wrapper) {
-    wrapper.addEventListener("mouseenter", stopAutoplay);
-    wrapper.addEventListener("mouseleave", startAutoplay);
+    wrapper.addEventListener("mouseenter", () => { hoverPaused = true; stopAutoplay(); });
+    wrapper.addEventListener("mouseleave", () => { hoverPaused = false; startAutoplay(); });
+    wrapper.addEventListener("focusin", stopAutoplay);
+    wrapper.addEventListener("focusout", () => queueMicrotask(startAutoplay));
 }
 
 function addSwipe(wrapper, track) {
@@ -164,9 +193,10 @@ function addSwipe(wrapper, track) {
         isDragging = false;
 
     wrapper.addEventListener("touchstart", (e) => {
+        if (e.target.closest('button:not(.carousel-expand), a')) return;
         startX = e.touches[0].clientX;
         isDragging = true;
-        stopAutoplayTemporarily();
+        pauseAutoplay();
     });
 
     wrapper.addEventListener("touchmove", (e) => {
@@ -183,6 +213,10 @@ function addSwipe(wrapper, track) {
         else showSlide(currentSlide);
         isDragging = false;
     });
+    wrapper.addEventListener("touchcancel", () => {
+        isDragging = false;
+        showSlide(currentSlide);
+    });
 }
 
 /* ---------- lightbox ---------- */
@@ -190,6 +224,7 @@ let lightboxEl = null;
 
 function openLightbox(index) {
     closeLightbox();
+    lightboxFocus = document.activeElement;
     currentSlide = (index + slideImages.length) % slideImages.length;
 
     lightboxEl = document.createElement("div");
@@ -197,6 +232,7 @@ function openLightbox(index) {
     lightboxEl.setAttribute("role", "dialog");
     lightboxEl.setAttribute("aria-modal", "true");
     lightboxEl.setAttribute("aria-label", "Image viewer");
+    lightboxEl.tabIndex = -1;
 
     const backdrop = document.createElement("div");
     backdrop.className = "lightbox-backdrop";
@@ -238,9 +274,10 @@ function openLightbox(index) {
     }
 
     document.body.appendChild(lightboxEl);
+    restoreLightboxBackground = makeBackgroundInert(lightboxEl);
     updateLightboxContent();
     showSlide(currentSlide);
-    stopAutoplayTemporarily();
+    stopAutoplay();
     closeBtn.focus();
 }
 
@@ -260,20 +297,25 @@ function lightboxNav(index) {
     currentSlide = (index + slideImages.length) % slideImages.length;
     updateLightboxContent();
     showSlide(currentSlide);
-    stopAutoplayTemporarily();
+    stopAutoplay();
 }
 
-function closeLightbox() {
+function closeLightbox({ restore = true } = {}) {
     if (lightboxEl) {
+        restoreLightboxBackground?.();
+        restoreLightboxBackground = null;
         lightboxEl.remove();
         lightboxEl = null;
+        if (restore) restoreFocus(lightboxFocus, modalClose);
+        lightboxFocus = null;
+        startAutoplay();
     }
 }
 
 function showSlide(index) {
     const track = document.getElementById("carousel-track");
     const dots = document.getElementById("carousel-dots");
-    if (!track) return;
+    if (!track || !track.children.length) return;
 
     const slides = track.children;
     const total = slides.length;
@@ -284,15 +326,13 @@ function showSlide(index) {
 
     if (dots) {
         Array.from(dots.children).forEach((dot, idx) => {
-            dot.classList.toggle("bg-gray-900", idx === currentSlide);
-            dot.classList.toggle("bg-gray-400", idx !== currentSlide);
-            dot.classList.toggle("dark:bg-gray-200", idx === currentSlide);
-            dot.classList.toggle("dark:bg-gray-500", idx !== currentSlide);
+            dot.setAttribute("aria-current", String(idx === currentSlide));
         });
     }
 
     Array.from(slides).forEach((slide, idx) => {
         slide.setAttribute("aria-hidden", idx !== currentSlide ? "true" : "false");
+        slide.inert = idx !== currentSlide;
     });
 }
 
@@ -360,7 +400,16 @@ function renderBody(projectData, markdownBody) {
 
 /* ---------- modal API ---------- */
 export function openModal(projectData) {
-    lastFocusedElement = document.activeElement;
+    if (modalRoot.classList.contains("hidden")) {
+        lastFocusedElement = document.activeElement;
+        previousOverflow = document.body.style.overflow;
+        restoreBackground = makeBackgroundInert(modalRoot);
+    }
+    closeLightbox({ restore: false });
+    stopAutoplay();
+    slideImages = [];
+    userPaused = reduceMotion.matches;
+    hoverPaused = false;
     currentProject = projectData;
 
     modalTitle.textContent = projectData.title;
@@ -370,6 +419,7 @@ export function openModal(projectData) {
     spinner.id = "modal-loading";
     spinner.className = "flex justify-center py-10";
     spinner.setAttribute("role", "status");
+    spinner.setAttribute("aria-label", "Loading project details");
 
     const spinnerDot = document.createElement("div");
     spinnerDot.className =
@@ -381,7 +431,8 @@ export function openModal(projectData) {
     document.body.style.overflow = "hidden";
 
     requestAnimationFrame(() => {
-        const focusables = getFocusableElements();
+        if (modalRoot.classList.contains("hidden")) return;
+        const focusables = getFocusableElements(modalPanel);
         (focusables[0] || modalPanel).focus();
     });
 }
@@ -420,18 +471,21 @@ function getLinkIconClass(key) {
  * Use this when closing due to popstate syncing (Back/Forward).
  */
 export function closeModal({ silent = false } = {}) {
-    closeLightbox();
+    closeLightbox({ restore: false });
     modalRoot.classList.add("hidden");
     modalBody.innerHTML = "";
-    document.body.style.overflow = "";
+    document.body.style.overflow = previousOverflow;
+    restoreBackground?.();
+    restoreBackground = null;
     slideImages = [];
     currentSlide = 0;
     currentProject = null;
     stopAutoplay();
-    if (resumeTimeout) clearTimeout(resumeTimeout);
 
     if (lastFocusedElement) {
-        lastFocusedElement.focus();
+        const replacement = Array.from(document.querySelectorAll('[data-project]'))
+            .find((el) => el.dataset.project === lastFocusedElement.dataset?.project);
+        restoreFocus(lastFocusedElement, replacement || document.getElementById("project-grid"));
         lastFocusedElement = null;
     }
 
@@ -447,7 +501,7 @@ export function clearProjectFromURL() {
     history.replaceState(
         null,
         "",
-        window.location.pathname + (params.toString() ? "?" + params : "")
+        window.location.pathname + (params.toString() ? "?" + params : "") + window.location.hash
     );
 }
 
@@ -470,6 +524,8 @@ modalBackdrop.onclick = () => closeModal();
 
 document.addEventListener("keydown", (e) => {
     if (lightboxEl) {
+        trapFocus(e, lightboxEl);
+        if (["ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
         if (e.key === "Escape") closeLightbox();
         if (e.key === "ArrowLeft") lightboxNav(currentSlide - 1);
         if (e.key === "ArrowRight") lightboxNav(currentSlide + 1);
@@ -477,11 +533,18 @@ document.addEventListener("keydown", (e) => {
     }
 
     if (!modalRoot.classList.contains("hidden")) {
-        trapFocus(e);
+        trapFocus(e, modalPanel);
 
-        if (e.key === "Escape") closeModal();
+        if (e.key === "Escape") {
+            closeModal();
+            return;
+        }
 
-        if (["ArrowLeft", "ArrowRight"].includes(e.key)) stopAutoplayTemporarily();
+        if (e.target.closest('input, textarea, select, [contenteditable="true"]') || e.altKey || e.ctrlKey || e.metaKey) return;
+        if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
+            e.preventDefault();
+            pauseAutoplay();
+        }
         if (e.key === "ArrowLeft") showSlide(currentSlide - 1);
         if (e.key === "ArrowRight") showSlide(currentSlide + 1);
 
@@ -493,10 +556,11 @@ document.addEventListener("keydown", (e) => {
             const el = document.activeElement;
             const onInteractive =
                 el && el !== document.body && el !== modalPanel &&
-                el.closest("a, button, input, textarea, select");
+                el.closest("a, button, input, textarea, select, summary");
             if (!onInteractive) {
                 e.preventDefault();
-                autoplayInterval ? stopAutoplay() : startAutoplay();
+                userPaused = !userPaused;
+                userPaused ? stopAutoplay() : startAutoplay();
             }
         }
 
@@ -506,3 +570,9 @@ document.addEventListener("keydown", (e) => {
         }
     }
 });
+
+reduceMotion.addEventListener("change", () => {
+    if (reduceMotion.matches) pauseAutoplay();
+    else updateAutoplayControl();
+});
+document.addEventListener("visibilitychange", () => document.hidden ? stopAutoplay() : startAutoplay());

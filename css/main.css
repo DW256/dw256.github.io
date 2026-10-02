@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "../js";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -------------------- Global -------------------- */
@@ -53,21 +55,126 @@ html {
 }
 
 /* -------------------- Carousel navigation buttons -------------------- */
+.carousel-viewport {
+    position: relative;
+}
+
 .carousel-wrapper .carousel-nav {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.7);
-    color: #000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    isolation: isolate;
+    background: transparent;
+    color: inherit;
     border-radius: 9999px;
-    padding: 0.25rem 0.5rem;
-    font-size: 1.5rem;
+    padding: 0;
+    font-size: 0.75rem;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
-.carousel-wrapper .carousel-nav:hover {
-    background: rgba(255, 255, 255, 0.9);
+.carousel-nav::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.1;
+    transition: opacity 0.2s;
+}
+
+.carousel-nav:hover::before {
+    opacity: 0.2;
+}
+
+/* -------------------- Accessible carousel controls -------------------- */
+#modal-close,
+.lightbox-close,
+.lightbox-nav,
+.carousel-nav {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.carousel-dot {
+    width: 24px;
+    height: 28px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.carousel-dot::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+}
+
+.carousel-dot[aria-current="true"]::before {
+    opacity: 1;
+}
+
+.carousel-play {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    isolation: isolate;
+    border: 0;
+    padding: 0;
+    color: white;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.carousel-play::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.carousel-play:hover::before {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.carousel-play:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.carousel-expand:focus-visible,
+.carousel-dot:focus-visible,
+.carousel-play:focus-visible,
+.carousel-nav:focus-visible,
+.lightbox button:focus-visible,
+#modal-close:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -3px;
 }
 
 /* -------------------- Markdown -------------------- */
@@ -281,6 +388,10 @@ html {
 
 /* -------------------- Reduced motion -------------------- */
 @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0s !important;
+    }
+
     .carousel-slide img {
         transition: none;
     }

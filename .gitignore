@@ -19,8 +19,8 @@ build/
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # VSCode settings (optional)
 .vscode/
@@ -28,3 +28,12 @@ build/
 # Temporary files
 *.tmp
 *.swp
+
+# Browser test output
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Local project scratch drafts (not portfolio content)
+content/projects/*.draft.md
